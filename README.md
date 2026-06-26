@@ -7,7 +7,7 @@
 - 后端：Java 17、Spring Boot 3、Maven、MyBatis-Plus、Spring JDBC、Validation、AOP 日志、SpringDoc OpenAPI
 - 数据库：KingbaseES（金仓数据库）
 - 前端：Vue 3、Vite、Pinia、Vue Router、Element Plus、ECharts、Axios
-- 扩展方向：硬件网关、短信验证码、邮箱验证码、实时采集数据、设备控制协议
+- 扩展方向：硬件网关、邮箱验证码、实时采集数据、设备控制协议
 
 ## 项目结构
 
@@ -87,8 +87,6 @@ $env:MAIL_USERNAME="verify@example.com"
 $env:MAIL_PASSWORD="SMTP授权码"
 $env:MAIL_FROM="verify@example.com"
 ```
-
-短信验证码已预留服务扩展点，可接入华为云、阿里云、腾讯云等短信服务商。
 
 ## 说明
 

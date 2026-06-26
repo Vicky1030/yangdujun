@@ -1,7 +1,6 @@
 package com.morel.greenhouse.application.service;
 
 import com.morel.greenhouse.application.dto.LoginRequest;
-import com.morel.greenhouse.application.dto.PhoneLoginRequest;
 import com.morel.greenhouse.application.dto.RegisterRequest;
 import com.morel.greenhouse.application.dto.ResetPasswordRequest;
 import com.morel.greenhouse.application.dto.VerificationCodeRequest;
@@ -65,7 +64,7 @@ public class AuthService {
         if (!request.password().equals(request.confirmPassword())) {
             throw new BusinessException(400, "两次输入的密码不一致");
         }
-        verifyRegisterCode(request);
+        verifyCode(request.email(), "REGISTER", request.verificationCode());
         Integer exists = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM app_user WHERE username = ? OR phone = ? OR email = ?",
                 Integer.class,
@@ -90,35 +89,20 @@ public class AuthService {
         return authPayload(findUserByUsername(request.username()));
     }
 
-    public Map<String, Object> phoneLogin(PhoneLoginRequest request, String clientIp) {
-        if (request.phone() == null || request.phone().isBlank()) {
-            throw new BusinessException(400, "手机号不能为空");
-        }
-        if (!"slider-ok".equals(request.captchaToken())) {
-            throw new BusinessException(400, "请先完成滑块人机验证");
-        }
-        verifyCode(request.phone(), "PHONE_LOGIN", request.verificationCode());
-        Map<String, Object> user = findUserByPhone(request.phone());
-        assertEnabled(user);
-        jdbcTemplate.update("UPDATE app_user SET last_login_ip = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", clientIp, user.get("id"));
-        log.info("User logged in by phone: username={}, phone={}, ip={}", user.get("username"), request.phone(), clientIp);
-        return authPayload(user);
-    }
-
     public Map<String, String> sendCode(VerificationCodeRequest request) {
         if (request.receiver() == null || request.receiver().isBlank()) {
-            throw new BusinessException(400, "验证码接收方不能为空");
+            throw new BusinessException(400, "邮箱不能为空");
         }
-        if ("PHONE_LOGIN".equals(request.scene()) && !"slider-ok".equals(request.captchaToken())) {
-            throw new BusinessException(400, "请先完成滑块人机验证");
+        if (!request.receiver().contains("@")) {
+            throw new BusinessException(400, "验证码只能发送到邮箱");
         }
         String code = String.valueOf(100000 + RANDOM.nextInt(900000));
         jdbcTemplate.update("""
                 INSERT INTO verification_code(receiver, scene, code, expires_at)
                 VALUES (?, ?, ?, ?)
                 """, request.receiver(), request.scene(), code, LocalDateTime.now().plusMinutes(5));
-        VerificationDeliveryService.DeliveryResult delivery = deliveryService.deliver(request.receiver(), request.scene(), code);
-        log.info("Verification code generated: receiver={}, scene={}, deliveryMode={}",
+        VerificationDeliveryService.DeliveryResult delivery = deliveryService.deliverEmail(request.receiver(), request.scene(), code);
+        log.info("Email verification code generated: receiver={}, scene={}, deliveryMode={}",
                 request.receiver(), request.scene(), delivery.devMode() ? "DEV" : "REAL");
         Map<String, String> result = new HashMap<>();
         result.put("message", delivery.message() + "，有效期 5 分钟");
@@ -131,40 +115,26 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        if (!request.receiver().contains("@")) {
+            throw new BusinessException(400, "请使用邮箱重置密码");
+        }
         if (!request.newPassword().equals(request.confirmPassword())) {
             throw new BusinessException(400, "两次输入的密码不一致");
         }
         verifyCode(request.receiver(), "RESET_PASSWORD", request.verificationCode());
         int updated = jdbcTemplate.update("""
                 UPDATE app_user SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE phone = ? OR email = ?
-                """, "{bcrypt}" + passwordEncoder.encode(request.newPassword()), request.receiver(), request.receiver());
+                WHERE email = ?
+                """, "{bcrypt}" + passwordEncoder.encode(request.newPassword()), request.receiver());
         if (updated == 0) {
-            throw new BusinessException(404, "未找到绑定该手机号或邮箱的用户");
+            throw new BusinessException(404, "未找到绑定该邮箱的用户");
         }
-        log.info("Password reset completed for receiver={}", request.receiver());
-    }
-
-    private void verifyRegisterCode(RegisterRequest request) {
-        if (hasValidCode(request.phone(), "REGISTER", request.verificationCode())) {
-            return;
-        }
-        if (request.email() != null && !request.email().isBlank()
-                && hasValidCode(request.email(), "REGISTER", request.verificationCode())) {
-            return;
-        }
-        throw new BusinessException(400, "验证码无效或已过期");
+        log.info("Password reset completed for email={}", request.receiver());
     }
 
     private void verifyCode(String receiver, String scene, String code) {
-        if (!hasValidCode(receiver, scene, code)) {
-            throw new BusinessException(400, "验证码无效或已过期");
-        }
-    }
-
-    private boolean hasValidCode(String receiver, String scene, String code) {
         if (receiver == null || receiver.isBlank() || code == null || code.isBlank()) {
-            return false;
+            throw new BusinessException(400, "验证码不能为空");
         }
         List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
                 SELECT id FROM verification_code
@@ -172,20 +142,14 @@ public class AuthService {
                 ORDER BY created_at DESC LIMIT 1
                 """, receiver, scene, code);
         if (rows.isEmpty()) {
-            return false;
+            throw new BusinessException(400, "验证码无效或已过期");
         }
         jdbcTemplate.update("UPDATE verification_code SET used = TRUE WHERE id = ?", rows.get(0).get("id"));
-        return true;
     }
 
     private Map<String, Object> findUserByUsername(String username) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM app_user WHERE username = ?", username);
         return rows.stream().findFirst().orElseThrow(() -> new BusinessException(401, "用户名或密码错误"));
-    }
-
-    private Map<String, Object> findUserByPhone(String phone) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM app_user WHERE phone = ?", phone);
-        return rows.stream().findFirst().orElseThrow(() -> new BusinessException(404, "手机号未注册"));
     }
 
     private Map<String, Object> authPayload(Map<String, Object> user) {

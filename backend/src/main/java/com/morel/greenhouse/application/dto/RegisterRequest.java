@@ -8,7 +8,7 @@ public record RegisterRequest(
         @NotBlank String password,
         @NotBlank String confirmPassword,
         @NotBlank String phone,
-        @Email String email,
+        @NotBlank @Email String email,
         String displayName,
         @NotBlank String verificationCode
 ) {

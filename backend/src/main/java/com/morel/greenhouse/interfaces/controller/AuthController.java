@@ -1,7 +1,6 @@
 package com.morel.greenhouse.interfaces.controller;
 
 import com.morel.greenhouse.application.dto.LoginRequest;
-import com.morel.greenhouse.application.dto.PhoneLoginRequest;
 import com.morel.greenhouse.application.dto.RegisterRequest;
 import com.morel.greenhouse.application.dto.ResetPasswordRequest;
 import com.morel.greenhouse.application.dto.VerificationCodeRequest;
@@ -36,11 +35,6 @@ public class AuthController {
     @PostMapping("/register")
     public ApiResult<Map<String, Object>> register(@Valid @RequestBody RegisterRequest request) {
         return ApiResult.ok(authService.register(request));
-    }
-
-    @PostMapping("/phone-login")
-    public ApiResult<Map<String, Object>> phoneLogin(@Valid @RequestBody PhoneLoginRequest request, HttpServletRequest servletRequest) {
-        return ApiResult.ok(authService.phoneLogin(request, clientIp(servletRequest)));
     }
 
     @PostMapping("/codes")

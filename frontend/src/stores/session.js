@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { login, phoneLogin, register } from '../services/auth'
+import { login, register } from '../services/auth'
 
 export const useSessionStore = defineStore('session', {
   state: () => ({
@@ -9,10 +9,6 @@ export const useSessionStore = defineStore('session', {
   actions: {
     async signIn(payload) {
       const data = await login(payload)
-      this.setSession(data)
-    },
-    async signInByPhone(payload) {
-      const data = await phoneLogin(payload)
       this.setSession(data)
     },
     async signUp(payload) {

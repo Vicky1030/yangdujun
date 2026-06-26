@@ -47,8 +47,6 @@ greenhouse:
     admin-default-password: ${GREENHOUSE_ADMIN_PASSWORD:admin123}
   verification:
     email-from: ${MAIL_FROM:}
-    sms-enabled: ${SMS_ENABLED:false}
-    sms-provider-name: ${SMS_PROVIDER_NAME:NotConfigured}
 
 logging:
   level:
