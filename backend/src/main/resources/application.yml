@@ -25,6 +25,8 @@ spring:
       mail:
         smtp:
           auth: ${MAIL_SMTP_AUTH:true}
+          ssl:
+            enable: ${MAIL_SMTP_SSL:false}
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:true}
 
