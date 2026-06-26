@@ -1,0 +1,139 @@
+:root {
+  --bg: #eef3f0;
+  --panel: #ffffff;
+  --panel-soft: #f7faf8;
+  --ink: #17231e;
+  --muted: #66746d;
+  --line: #dce5df;
+  --brand: #1f7a55;
+  --brand-strong: #0f5f3f;
+  --accent: #d49a2a;
+  --danger: #c64545;
+  --warning: #d38321;
+  --radius: 8px;
+  font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 1280px;
+  min-height: 100vh;
+  color: var(--ink);
+  background:
+    linear-gradient(135deg, rgba(31, 122, 85, 0.08), transparent 32%),
+    radial-gradient(circle at top right, rgba(212, 154, 42, 0.16), transparent 28%),
+    var(--bg);
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.page {
+  display: grid;
+  gap: 18px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.metric-card {
+  min-height: 118px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #ffffff, #f8fbf9);
+  box-shadow: 0 16px 36px rgba(38, 72, 56, 0.08);
+}
+
+.metric-card span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.metric-card strong {
+  display: block;
+  margin-top: 12px;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.panel {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 18px 42px rgba(38, 72, 56, 0.07);
+  animation: panel-rise 420ms ease both;
+}
+
+.split-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr;
+  gap: 18px;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+
+.status-dot.warning {
+  background: var(--warning);
+}
+
+.status-dot.danger {
+  background: var(--danger);
+}
+
+@keyframes panel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.soft-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.soft-glow::after {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  pointer-events: none;
+  background: conic-gradient(from 120deg, transparent, rgba(31, 122, 85, 0.18), transparent, rgba(212, 154, 42, 0.16), transparent);
+  animation: slow-spin 14s linear infinite;
+}
+
+@keyframes slow-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

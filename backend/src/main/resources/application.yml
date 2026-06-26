@@ -1,0 +1,58 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: smart-greenhouse-backend
+  profiles:
+    active: kingbase,mock
+  datasource:
+    driver-class-name: com.kingbase8.Driver
+    url: ${KINGBASE_URL:jdbc:kingbase8://localhost:54321/smart_greenhouse}
+    username: ${KINGBASE_USERNAME:system}
+    password: ${KINGBASE_PASSWORD:123456}
+    hikari:
+      pool-name: MorelKingbasePool
+      maximum-pool-size: 12
+      minimum-idle: 2
+      connection-timeout: 15000
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:true}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+greenhouse:
+  hardware:
+    gateway-enabled: false
+    mqtt-topic-prefix: morel/greenhouse
+  security:
+    admin-username: admin
+    admin-default-password: ${GREENHOUSE_ADMIN_PASSWORD:admin123}
+  verification:
+    email-from: ${MAIL_FROM:}
+    sms-enabled: ${SMS_ENABLED:false}
+    sms-provider-name: ${SMS_PROVIDER_NAME:NotConfigured}
+
+logging:
+  level:
+    root: info
+    com.morel.greenhouse: debug
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] trace=%X{traceId:-} user=%X{user:-anonymous} %logger{36} - %msg%n"

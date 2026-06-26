@@ -1,0 +1,14 @@
+node_modules/
+target/
+dist/
+*.log
+.idea/
+.vscode/
+.DS_Store
+frontend/dist/
+frontend/node_modules/
+backend/target/
+backend-run*.log
+frontend-run*.log
+backend/lib/*.jar
+!backend/lib/README.md
