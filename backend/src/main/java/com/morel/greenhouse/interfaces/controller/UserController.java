@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -55,8 +56,11 @@ public class UserController {
     }
 
     @GetMapping("/operation-logs")
-    public ApiResult<List<Map<String, Object>>> operationLogs() {
-        return ApiResult.ok(userAccountService.operationLogs());
+    public ApiResult<Map<String, Object>> operationLogs(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResult.ok(userAccountService.operationLogs(page, size));
     }
 
     private String clientIp(HttpServletRequest request) {

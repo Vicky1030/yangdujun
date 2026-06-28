@@ -5,4 +5,4 @@ export const updateProfile = (id, payload) => http.put(`/users/${id}/profile`, p
 export const submitFeedback = (payload) => http.post('/users/feedback', payload)
 export const fetchUsers = () => http.get('/users')
 export const fetchFeedbacks = () => http.get('/users/feedback')
-export const fetchOperationLogs = () => http.get('/users/operation-logs')
+export const fetchOperationLogs = (params) => http.get('/users/operation-logs', { params })

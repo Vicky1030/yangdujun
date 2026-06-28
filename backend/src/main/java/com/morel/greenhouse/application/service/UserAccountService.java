@@ -66,8 +66,26 @@ public class UserAccountService {
                 """);
     }
 
-    public List<Map<String, Object>> operationLogs() {
-        return jdbcTemplate.queryForList("SELECT * FROM operation_log ORDER BY created_at DESC LIMIT 200");
+    public Map<String, Object> operationLogs(int page, int size) {
+        int normalizedPage = Math.max(page, 1);
+        int normalizedSize = Math.min(Math.max(size, 1), 100);
+        int offset = (normalizedPage - 1) * normalizedSize;
+        Long total = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM operation_log", Long.class);
+        List<Map<String, Object>> records = jdbcTemplate.queryForList("""
+                SELECT *
+                FROM operation_log
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                """, normalizedSize, offset);
+        long totalValue = total == null ? 0L : total;
+        long pages = totalValue == 0 ? 0 : (totalValue + normalizedSize - 1) / normalizedSize;
+        return Map.of(
+                "records", records,
+                "total", totalValue,
+                "page", normalizedPage,
+                "size", normalizedSize,
+                "pages", pages
+        );
     }
 
     private String blankToDefault(String value, String fallback) {

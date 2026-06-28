@@ -6,6 +6,10 @@
         <h2>管理员管理总览</h2>
         <p>聚合大棚、设备、环境和告警信息。点击关键卡片可以直接进入对应处理界面。</p>
       </div>
+      <div class="hero-orbit" aria-hidden="true">
+        <span />
+        <strong>AI</strong>
+      </div>
       <div class="hero-actions">
         <el-select v-model="greenhouseId" style="width: 260px" @change="load">
           <el-option v-for="item in overview.greenhouses" :key="item.id" :label="item.name" :value="item.id" />
@@ -187,17 +191,38 @@ onMounted(load)
 
 <style scoped>
 .hero-panel {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 24px;
+  min-height: 176px;
+  padding: 28px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background:
-    radial-gradient(circle at 16% 18%, rgba(54, 230, 166, 0.18), transparent 34%),
-    linear-gradient(135deg, rgba(17, 42, 39, 0.86), rgba(7, 20, 22, 0.76));
+    radial-gradient(circle at 18% 18%, rgba(168, 211, 111, 0.22), transparent 34%),
+    radial-gradient(circle at 78% 30%, rgba(154, 185, 151, 0.16), transparent 28%),
+    linear-gradient(135deg, rgba(31, 57, 39, 0.88), rgba(7, 16, 11, 0.78));
   box-shadow: var(--shadow);
+}
+
+.hero-panel::before {
+  content: "";
+  position: absolute;
+  inset: auto 20% -70px 10%;
+  height: 150px;
+  background:
+    linear-gradient(90deg, transparent, rgba(168, 211, 111, 0.18), transparent),
+    repeating-linear-gradient(90deg, rgba(154, 185, 151, 0.16) 0 1px, transparent 1px 38px);
+  transform: perspective(360px) rotateX(62deg);
+  transform-origin: bottom;
+}
+
+.hero-panel > * {
+  position: relative;
+  z-index: 1;
 }
 
 .eyebrow {
@@ -208,12 +233,39 @@ onMounted(load)
 .hero-panel h2 {
   margin: 8px 0;
   color: #f7fffb;
-  font-size: 32px;
+  font-size: 34px;
 }
 
 .hero-panel p {
   margin: 0;
   color: var(--muted);
+}
+
+.hero-orbit {
+  position: absolute;
+  right: 330px;
+  top: 24px;
+  display: grid;
+  width: 104px;
+  height: 104px;
+  place-items: center;
+  border: 1px solid rgba(168, 211, 111, 0.22);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(168, 211, 111, 0.2), transparent 62%);
+  opacity: 0.9;
+}
+
+.hero-orbit span {
+  position: absolute;
+  inset: 12px;
+  border: 1px dashed rgba(241, 248, 237, 0.26);
+  border-radius: 50%;
+  animation: orbit-spin 18s linear infinite;
+}
+
+.hero-orbit strong {
+  color: var(--brand);
+  font-size: 22px;
 }
 
 .hero-actions,
@@ -241,15 +293,33 @@ onMounted(load)
 
 .summary-card,
 .env-card {
-  padding: 18px;
+  position: relative;
+  overflow: hidden;
+  min-height: 132px;
+  padding: 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: linear-gradient(145deg, rgba(17, 42, 39, 0.82), rgba(7, 20, 22, 0.76));
+  background:
+    radial-gradient(circle at 12% 12%, rgba(168, 211, 111, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(28, 52, 36, 0.82), rgba(7, 17, 11, 0.78));
   color: inherit;
   text-align: left;
   box-shadow: var(--shadow);
   cursor: pointer;
   transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.summary-card::after,
+.env-card::after {
+  content: "";
+  position: absolute;
+  right: -24px;
+  bottom: -24px;
+  width: 92px;
+  height: 92px;
+  border: 1px solid rgba(168, 211, 111, 0.18);
+  border-radius: 50%;
+  background: rgba(154, 185, 151, 0.045);
 }
 
 .summary-card small,
@@ -273,13 +343,19 @@ onMounted(load)
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.055);
+  background: rgba(154, 185, 151, 0.07);
   cursor: pointer;
 }
 
 .alert-list p {
   margin: 6px 0 0;
   color: var(--muted);
+}
+
+@keyframes orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 1080px) {
@@ -301,6 +377,10 @@ onMounted(load)
   .hero-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .hero-orbit {
+    display: none;
   }
 }
 </style>

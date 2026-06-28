@@ -103,10 +103,20 @@ const logout = () => {
   position: relative;
   z-index: 2;
   border-right: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(8, 23, 21, 0.96), rgba(6, 17, 20, 0.92));
+  background:
+    radial-gradient(circle at 28% 6%, rgba(168, 211, 111, 0.22), transparent 28%),
+    linear-gradient(180deg, rgba(15, 32, 22, 0.98), rgba(5, 13, 9, 0.94));
   color: #fff;
-  box-shadow: 22px 0 70px rgba(0, 0, 0, 0.24);
+  box-shadow: 22px 0 72px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(20px);
+}
+
+.console__aside::after {
+  content: "";
+  position: absolute;
+  inset: 92px 18px auto 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(168, 211, 111, 0.46), transparent);
 }
 
 .brand {
@@ -121,12 +131,14 @@ const logout = () => {
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid rgba(54, 230, 166, 0.45);
+  border: 1px solid rgba(168, 211, 111, 0.48);
   border-radius: 8px;
-  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.36), transparent 28%), linear-gradient(135deg, var(--brand), var(--cyan));
-  color: #031412;
+  background:
+    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.42), transparent 30%),
+    linear-gradient(135deg, var(--brand), var(--brand-strong));
+  color: #07110d;
   font-weight: 900;
-  box-shadow: 0 0 24px rgba(54, 230, 166, 0.28);
+  box-shadow: 0 0 28px rgba(168, 211, 111, 0.22);
 }
 
 .brand strong,
@@ -151,15 +163,17 @@ const logout = () => {
 }
 
 .nav :deep(.el-menu-item) {
-  height: 46px;
+  height: 48px;
   margin: 4px 12px;
   border-radius: var(--radius);
-  color: #a8c8bd;
+  color: #a7bea2;
+  font-weight: 700;
 }
 
 .nav :deep(.el-menu-item.is-active),
 .nav :deep(.el-menu-item:hover) {
-  background: linear-gradient(90deg, rgba(54, 230, 166, 0.18), rgba(68, 217, 255, 0.08));
+  background:
+    linear-gradient(90deg, rgba(168, 211, 111, 0.18), rgba(154, 185, 151, 0.08));
   color: #f7fffb;
   box-shadow: inset 3px 0 0 var(--brand);
 }
@@ -170,7 +184,9 @@ const logout = () => {
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  background: rgba(6, 18, 18, 0.62);
+  background:
+    linear-gradient(90deg, rgba(10, 22, 15, 0.72), rgba(20, 42, 28, 0.5)),
+    rgba(6, 18, 12, 0.62);
   backdrop-filter: blur(18px);
 }
 
@@ -202,8 +218,8 @@ const logout = () => {
   align-items: center;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  color: #dffbf2;
+  background: rgba(154, 185, 151, 0.09);
+  color: #e4f5d8;
 }
 
 .system-pill {
@@ -219,6 +235,6 @@ const logout = () => {
 }
 
 .console__main {
-  padding: 22px;
+  padding: 24px;
 }
 </style>
