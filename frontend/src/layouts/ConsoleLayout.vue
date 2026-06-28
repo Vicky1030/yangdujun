@@ -4,10 +4,11 @@
       <div class="brand">
         <div class="brand__mark">菌</div>
         <div>
-          <strong>智慧大棚管理平台</strong>
-          <span>羊肚菌生产与设备协同</span>
+          <strong>菌境智联</strong>
+          <span>羊肚菌生态调控平台</span>
         </div>
       </div>
+
       <el-menu router :default-active="$route.path" class="nav">
         <el-menu-item index="/">
           <el-icon><DataAnalysis /></el-icon>
@@ -57,6 +58,7 @@
           <h1>{{ $route.meta.title || '智慧大棚控制台' }}</h1>
         </div>
         <div class="header-actions">
+          <span class="system-pill"><span class="status-dot" />物联感知在线</span>
           <el-dropdown>
             <span class="operator">{{ operatorName }}</span>
             <template #dropdown>
@@ -67,6 +69,7 @@
           </el-dropdown>
         </div>
       </el-header>
+
       <el-main class="console__main">
         <RouterView />
       </el-main>
@@ -97,9 +100,13 @@ const logout = () => {
 }
 
 .console__aside {
+  position: relative;
+  z-index: 2;
   border-right: 1px solid var(--line);
-  background: #10251c;
+  background: linear-gradient(180deg, rgba(8, 23, 21, 0.96), rgba(6, 17, 20, 0.92));
   color: #fff;
+  box-shadow: 22px 0 70px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(20px);
 }
 
 .brand {
@@ -111,13 +118,15 @@ const logout = () => {
 
 .brand__mark {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   place-items: center;
+  border: 1px solid rgba(54, 230, 166, 0.45);
   border-radius: 8px;
-  background: #d9a441;
-  color: #10251c;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.36), transparent 28%), linear-gradient(135deg, var(--brand), var(--cyan));
+  color: #031412;
   font-weight: 900;
+  box-shadow: 0 0 24px rgba(54, 230, 166, 0.28);
 }
 
 .brand strong,
@@ -125,9 +134,14 @@ const logout = () => {
   display: block;
 }
 
+.brand strong {
+  color: #f5fffb;
+  font-size: 18px;
+}
+
 .brand span {
   margin-top: 4px;
-  color: #b6c7bf;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -137,13 +151,17 @@ const logout = () => {
 }
 
 .nav :deep(.el-menu-item) {
-  color: #b6c7bf;
+  height: 46px;
+  margin: 4px 12px;
+  border-radius: var(--radius);
+  color: #a8c8bd;
 }
 
 .nav :deep(.el-menu-item.is-active),
 .nav :deep(.el-menu-item:hover) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: linear-gradient(90deg, rgba(54, 230, 166, 0.18), rgba(68, 217, 255, 0.08));
+  color: #f7fffb;
+  box-shadow: inset 3px 0 0 var(--brand);
 }
 
 .console__header {
@@ -152,8 +170,8 @@ const logout = () => {
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(14px);
+  background: rgba(6, 18, 18, 0.62);
+  backdrop-filter: blur(18px);
 }
 
 .console__header p,
@@ -168,18 +186,36 @@ const logout = () => {
 
 .console__header h1 {
   margin-top: 4px;
+  color: #f4fffb;
   font-size: 22px;
 }
 
 .header-actions {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
+}
+
+.system-pill,
+.operator {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #dffbf2;
+}
+
+.system-pill {
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
 }
 
 .operator {
   cursor: pointer;
-  font-weight: 700;
+  padding: 9px 14px;
+  font-weight: 800;
 }
 
 .console__main {

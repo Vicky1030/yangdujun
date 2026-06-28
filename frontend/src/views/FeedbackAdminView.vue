@@ -5,7 +5,11 @@
       <el-table-column prop="category" label="类型" width="160" />
       <el-table-column prop="content" label="内容" />
       <el-table-column prop="contact" label="联系方式" width="180" />
-      <el-table-column prop="status" label="状态" width="120" />
+      <el-table-column prop="status" label="状态" width="120">
+        <template #default="{ row }">
+          <el-tag :type="row.status === 'DONE' ? 'success' : 'warning'">{{ row.status === 'DONE' ? '已处理' : '待处理' }}</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="created_at" label="提交时间" width="220" />
     </el-table>
   </section>
@@ -14,10 +18,16 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { fetchFeedbacks } from '../services/user'
+
 const loading = ref(false)
 const rows = ref([])
+
 onMounted(async () => {
   loading.value = true
-  try { rows.value = await fetchFeedbacks() } finally { loading.value = false }
+  try {
+    rows.value = await fetchFeedbacks()
+  } finally {
+    loading.value = false
+  }
 })
 </script>

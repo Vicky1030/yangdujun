@@ -2,6 +2,7 @@
   <div class="page" v-loading="loading">
     <section class="panel">
       <h2 class="section-title">批次溯源链路</h2>
+      <p class="muted">记录羊肚菌生产批次从菌包、温湿度管理到采收的关键操作。</p>
       <el-timeline style="margin-top: 24px">
         <el-timeline-item
           v-for="item in records"
@@ -9,7 +10,7 @@
           :timestamp="item.operationDate"
           placement="top"
         >
-          <el-card>
+          <el-card class="trace-card">
             <strong>{{ item.operation }}</strong>
             <p class="muted">批次：{{ item.batchNo }} / 操作人：{{ item.operator }}</p>
             <p>{{ item.note }}</p>
@@ -36,3 +37,12 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.trace-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+}
+</style>

@@ -1,12 +1,29 @@
 <template>
-  <main class="login">
-    <section class="login__panel">
-      <div class="login__copy">
-        <span class="eyebrow">智慧农业管理平台</span>
-        <h1>智慧羊肚菌大棚管理系统</h1>
-        <p>面向管理员与农户的环境监测、设备联动、告警审计、批次溯源与问题反馈平台。</p>
-      </div>
+  <main class="login" :class="{ 'login--ready': panelVisible }">
+    <video
+      ref="introVideo"
+      class="login__video"
+      src="/assets/morel-login-intro.mp4"
+      autoplay
+      muted
+      playsinline
+      preload="auto"
+      @ended="showPanel(mode)"
+    />
 
+    <div class="login__veil" />
+
+    <div class="brand-title" :class="{ 'brand-title--visible': panelVisible }">
+      <span>智慧农业 · IoT · AI 调控</span>
+      <h1>菌境智联 · 羊肚菌智慧生态调控系统</h1>
+    </div>
+
+    <div class="intro-actions" :class="{ 'intro-actions--hidden': panelVisible }">
+      <el-button @click="showPanel('password')">登录</el-button>
+      <el-button type="primary" @click="showPanel('register')">注册</el-button>
+    </div>
+
+    <section class="login__panel">
       <div class="login__form">
         <el-tabs v-model="mode" stretch>
           <el-tab-pane label="账号登录" name="password">
@@ -29,7 +46,7 @@
                 <el-input v-model.trim="registerForm.username" size="large" placeholder="用户名，不能为 admin" />
               </el-form-item>
               <el-form-item>
-                <el-input v-model.trim="registerForm.phone" size="large" placeholder="手机号，作为资料和联系信息" />
+                <el-input v-model.trim="registerForm.phone" size="large" placeholder="手机号，用于资料和联系信息" />
               </el-form-item>
               <el-form-item>
                 <el-input v-model.trim="registerForm.email" size="large" placeholder="邮箱，验证码将发送到这里" />
@@ -112,6 +129,8 @@ const AgreementCheck = defineComponent({
 
 const router = useRouter()
 const session = useSessionStore()
+const introVideo = ref(null)
+const panelVisible = ref(false)
 const mode = ref('password')
 const loading = ref(false)
 const loginAgreed = ref(false)
@@ -136,6 +155,27 @@ const passwordStrength = computed(() => {
   return score >= 3 ? '强' : score === 2 ? '中等' : '弱'
 })
 const strengthType = computed(() => passwordStrength.value === '强' ? 'success' : passwordStrength.value === '中等' ? 'warning' : 'danger')
+
+const showPanel = (target = 'password') => {
+  mode.value = target
+  panelVisible.value = true
+  freezeVideoAtFinalFrame()
+}
+
+const freezeVideoAtFinalFrame = () => {
+  const video = introVideo.value
+  if (!video) return
+  const freeze = () => {
+    if (!Number.isFinite(video.duration) || video.duration <= 0) return
+    video.currentTime = Math.max(video.duration - 0.08, 0)
+    video.pause()
+  }
+  if (Number.isFinite(video.duration) && video.duration > 0) {
+    freeze()
+  } else {
+    video.addEventListener('loadedmetadata', freeze, { once: true })
+  }
+}
 
 const requireAgreement = agreed => {
   if (!agreed) {
@@ -216,58 +256,145 @@ const openPolicy = async (type) => {
 
 <style scoped>
 .login {
+  position: relative;
   display: grid;
   min-height: 100vh;
   place-items: center;
-  padding: 48px;
+  overflow: hidden;
+  background: #030908;
+}
+
+.login__video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(1.06) contrast(1.04);
+  transform: scale(1.02);
+  transition: width 780ms cubic-bezier(.2, .8, .2, 1), height 780ms cubic-bezier(.2, .8, .2, 1), inset 780ms cubic-bezier(.2, .8, .2, 1), border-radius 780ms cubic-bezier(.2, .8, .2, 1), transform 780ms cubic-bezier(.2, .8, .2, 1), filter 780ms ease;
+}
+
+.login__veil {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
   background:
-    linear-gradient(115deg, rgba(13, 31, 24, 0.95), rgba(28, 111, 78, 0.72)),
-    url('/greenhouse-bg.svg');
+    radial-gradient(circle at 26% 34%, transparent 0 24%, rgba(2, 8, 8, 0.2) 42%, rgba(2, 8, 8, 0.8) 100%),
+    linear-gradient(90deg, rgba(2, 8, 8, 0.12), rgba(2, 8, 8, 0.58));
+  transition: opacity 620ms ease;
+}
+
+.brand-title {
+  position: fixed;
+  z-index: 3;
+  top: clamp(42px, 7vh, 86px);
+  left: clamp(44px, 6vw, 118px);
+  width: min(430px, 34vw);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 420ms ease 160ms, transform 420ms ease 160ms;
+}
+
+.brand-title--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.brand-title span {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--brand);
+  font-size: 18px;
+  font-weight: 900;
+  text-shadow: 0 8px 26px rgba(0, 0, 0, 0.8);
+}
+
+.brand-title h1 {
+  margin: 0;
+  color: #f7fffb;
+  font-size: clamp(30px, 3vw, 48px);
+  line-height: 1.14;
+  letter-spacing: 0;
+  text-shadow: 0 10px 34px rgba(0, 0, 0, 0.86);
+}
+
+.intro-actions {
+  position: fixed;
+  z-index: 4;
+  top: 30px;
+  right: 34px;
+  display: flex;
+  gap: 12px;
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+
+.intro-actions--hidden {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
 }
 
 .login__panel {
-  display: grid;
-  width: min(1080px, 100%);
-  min-height: 620px;
-  grid-template-columns: 1.05fr 0.95fr;
+  position: relative;
+  z-index: 3;
+  width: min(580px, calc(100vw - 80px));
+  min-height: 490px;
+  margin-left: clamp(760px, 58vw, 980px);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(140, 255, 214, 0.22);
+  border-radius: var(--radius);
+  background: rgba(6, 19, 19, 0.86);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(22px);
+  opacity: 0;
+  transform: translateY(12px) scale(0.985);
+  pointer-events: none;
+  transition: opacity 520ms ease 120ms, transform 520ms ease 120ms;
 }
 
-.login__copy {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 54px;
-  background:
-    linear-gradient(155deg, rgba(16, 37, 28, 0.95), rgba(31, 122, 85, 0.82)),
-    radial-gradient(circle at 24% 18%, rgba(223, 180, 86, 0.28), transparent 32%);
-  color: #fff;
+.login--ready .login__panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
 }
 
-.eyebrow {
-  color: #dfb456;
-  font-weight: 800;
+.login--ready .login__video {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-position: center center;
+  border-radius: 0;
+  filter: saturate(1.12) contrast(1.06) brightness(0.9);
+  transform: scale(1.02);
 }
 
-.login__copy h1 {
-  margin: 18px 0;
-  font-size: 46px;
-  line-height: 1.12;
-}
-
-.login__copy p {
-  max-width: 520px;
-  color: #d7e7df;
-  font-size: 17px;
+.login--ready .login__veil {
+  opacity: 0.22;
 }
 
 .login__form {
-  align-self: center;
-  padding: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 46px 48px;
+  background: rgba(7, 20, 20, 0.82);
+}
+
+.login__form :deep(.el-tabs) {
+  width: min(100%, 560px);
+}
+
+.login__form :deep(.el-tabs__item) {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.login__form :deep(.el-tabs__item.is-active) {
+  color: var(--brand);
 }
 
 .login__form .el-button:not(.is-link),
@@ -285,6 +412,7 @@ const openPolicy = async (type) => {
   align-items: center;
   gap: 4px;
   margin: 4px 0 18px;
+  color: var(--muted);
 }
 
 .strength {
@@ -292,34 +420,46 @@ const openPolicy = async (type) => {
   align-items: center;
   justify-content: space-between;
   margin: -8px 0 12px;
+  color: var(--muted);
 }
 
 .policy-content {
   white-space: pre-line;
   line-height: 1.9;
-  color: #4a5f55;
+  color: #d9f7ee;
 }
 
-@media (max-width: 860px) {
-  .login {
-    padding: 22px;
+@media (max-width: 980px) {
+  .brand-title {
+    top: 28px;
+    left: 24px;
+    width: min(420px, calc(100vw - 48px));
+  }
+
+  .brand-title span {
+    font-size: 14px;
+  }
+
+  .brand-title h1 {
+    font-size: 26px;
   }
 
   .login__panel {
-    grid-template-columns: 1fr;
+    width: min(92vw, 640px);
+    height: auto;
+    min-height: 0;
+    margin: 0;
   }
 
-  .login__copy {
-    min-height: 240px;
-    padding: 32px;
-  }
-
-  .login__copy h1 {
-    font-size: 34px;
+  .login--ready .login__video {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
   }
 
   .login__form {
-    padding: 28px;
+    padding: 30px;
   }
 }
 </style>

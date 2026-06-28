@@ -83,7 +83,7 @@ public class AuthService {
                 "{bcrypt}" + passwordEncoder.encode(request.password()),
                 request.phone(),
                 request.email(),
-                request.displayName() == null || request.displayName().isBlank() ? request.username() : request.displayName()
+                request.displayName() == null || request.displayName().isBlank() ? "" : request.displayName()
         );
         log.info("Farmer account registered: username={}, phone={}, email={}", request.username(), request.phone(), request.email());
         return authPayload(findUserByUsername(request.username()));

@@ -115,7 +115,7 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
                 rs.getLong("greenhouse_id"),
                 rs.getString("name"),
                 rs.getString("category"),
-                DeviceStatus.valueOf(rs.getString("status")),
+                mapDeviceStatus(rs.getString("status")),
                 rs.getString("location"),
                 rs.getBoolean("auto_mode"),
                 rs.getInt("health_score")
@@ -147,6 +147,18 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
                 rs.getString("status"),
                 rs.getTimestamp("occurred_at").toLocalDateTime()
         );
+    }
+
+    private DeviceStatus mapDeviceStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return DeviceStatus.STOPPED;
+        }
+        return switch (status.trim().toUpperCase()) {
+            case "RUNNING", "ONLINE", "ON" -> DeviceStatus.RUNNING;
+            case "MAINTENANCE", "REPAIR" -> DeviceStatus.MAINTENANCE;
+            case "STOPPED", "OFF", "OFFLINE", "DISABLED" -> DeviceStatus.STOPPED;
+            default -> DeviceStatus.STOPPED;
+        };
     }
 
     private TraceabilityRecord mapTraceability(ResultSet rs, int rowNum) throws SQLException {

@@ -60,9 +60,9 @@ const formatIpLocation = ip => {
     return '辽宁省沈阳市（本机访问）'
   }
   if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) {
-    return '局域网访问（需接入 IP 地址库后显示省市）'
+    return '局域网访问（接入 IP 地址库后显示省市）'
   }
-  return `公网 IP：${ip}（需接入 IP 地址库后显示省市）`
+  return `公网 IP：${ip}（接入 IP 地址库后显示省市）`
 }
 
 const load = async () => {
@@ -85,6 +85,7 @@ const submit = async () => {
   if (!feedback.content) return ElMessage.warning('请填写反馈内容')
   await submitFeedback({ ...feedback, userId: session.profile.id })
   feedback.category = ''
+  feedback.contact = ''
   feedback.content = ''
   ElMessage.success('反馈已提交')
 }
@@ -108,10 +109,11 @@ onMounted(load)
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--panel-soft);
+  background: rgba(255, 255, 255, 0.055);
 }
 
 .profile-head strong {
+  color: #f7fffb;
   font-size: 20px;
 }
 </style>

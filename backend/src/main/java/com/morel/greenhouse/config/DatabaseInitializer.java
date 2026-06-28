@@ -40,9 +40,12 @@ public class DatabaseInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         log.info("Initializing Kingbase schema and seed data");
         ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+        populator.setSqlScriptEncoding("UTF-8");
         populator.addScript(new ClassPathResource("db/kingbase/schema.sql"));
         populator.addScript(new ClassPathResource("db/kingbase/seed.sql"));
         populator.execute(dataSource);
+        cleanupCorruptedSeedData();
+        normalizeLegacyDeviceStatus();
 
         Integer exists = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM app_user WHERE username = ?",
@@ -64,6 +67,35 @@ public class DatabaseInitializer implements ApplicationRunner {
                     "Platform super administrator"
             );
             log.info("Admin account initialized: username=admin");
+        }
+    }
+
+    private void cleanupCorruptedSeedData() {
+        String corruptedGreenhouseCondition = "name LIKE '%鑿%' OR name LIKE '%ç%' OR location LIKE '%娓%' OR crop_stage LIKE '%鍑%'";
+        jdbcTemplate.update("DELETE FROM greenhouse_alert WHERE title LIKE '%娉%' OR description LIKE '%杩%'");
+        jdbcTemplate.update("DELETE FROM greenhouse_device WHERE name LIKE '%椋%' OR category LIKE '%閫%' OR location LIKE '%涓%'");
+        jdbcTemplate.update("DELETE FROM telemetry_snapshot WHERE greenhouse_id IN (SELECT id FROM greenhouse WHERE " + corruptedGreenhouseCondition + ")");
+        jdbcTemplate.update("DELETE FROM traceability_record WHERE greenhouse_id IN (SELECT id FROM greenhouse WHERE " + corruptedGreenhouseCondition + ")");
+        jdbcTemplate.update("DELETE FROM greenhouse_alert WHERE greenhouse_id IN (SELECT id FROM greenhouse WHERE " + corruptedGreenhouseCondition + ")");
+        jdbcTemplate.update("DELETE FROM greenhouse_device WHERE greenhouse_id IN (SELECT id FROM greenhouse WHERE " + corruptedGreenhouseCondition + ")");
+        int removed = jdbcTemplate.update("DELETE FROM greenhouse WHERE " + corruptedGreenhouseCondition);
+        if (removed > 0) {
+            log.warn("Removed corrupted seed greenhouse rows: count={}", removed);
+        }
+    }
+
+    private void normalizeLegacyDeviceStatus() {
+        int updated = jdbcTemplate.update("""
+                UPDATE greenhouse_device
+                SET status = CASE status
+                    WHEN 'ON' THEN 'RUNNING'
+                    WHEN 'OFF' THEN 'STOPPED'
+                    ELSE status
+                END
+                WHERE status IN ('ON', 'OFF')
+                """);
+        if (updated > 0) {
+            log.info("Normalized legacy device status rows: count={}", updated);
         }
     }
 }

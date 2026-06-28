@@ -1,40 +1,49 @@
 <template>
   <div class="page" v-loading="loading">
+    <section class="hero-panel">
+      <div>
+        <span class="eyebrow">智能生态调控中枢</span>
+        <h2>管理员管理总览</h2>
+        <p>聚合大棚、设备、环境和告警信息。点击关键卡片可以直接进入对应处理界面。</p>
+      </div>
+      <div class="hero-actions">
+        <el-select v-model="greenhouseId" style="width: 260px" @change="load">
+          <el-option v-for="item in overview.greenhouses" :key="item.id" :label="item.name" :value="item.id" />
+        </el-select>
+        <el-button type="primary" @click="greenhouseDialog = true">添加大棚</el-button>
+      </div>
+    </section>
+
     <div class="admin-summary">
-      <div class="summary-card">
+      <button class="summary-card" type="button" @click="scrollToGreenhouses">
         <span>管理大棚</span>
         <strong>{{ overview.greenhouses.length }}</strong>
         <small>在线 {{ onlineCount }} 个，异常 {{ warningCount }} 个</small>
-      </div>
-      <div class="summary-card">
+      </button>
+      <button class="summary-card" type="button" @click="focusGreenhouse">
         <span>当前选中大棚</span>
         <strong>{{ selectedGreenhouse?.name || '-' }}</strong>
         <small>{{ selectedGreenhouse?.location || '暂无位置' }}</small>
-      </div>
-      <div class="summary-card">
+      </button>
+      <button class="summary-card" type="button" @click="router.push('/devices')">
         <span>设备运行</span>
         <strong>{{ runningDeviceCount }}/{{ overview.devices.length }}</strong>
-        <small>运行设备 / 当前大棚设备总数</small>
-      </div>
-      <div class="summary-card danger">
+        <small>点击进入设备管理</small>
+      </button>
+      <button class="summary-card danger" type="button" @click="router.push('/alerts?status=OPEN')">
         <span>未处理告警</span>
         <strong>{{ overview.activeAlerts.length }}</strong>
-        <small>需要管理员跟进</small>
-      </div>
+        <small>点击进入告警处理</small>
+      </button>
     </div>
 
     <section class="panel">
       <div class="panel-head">
         <div>
-          <h2 class="section-title">大棚监管视图</h2>
-          <p class="muted">选择大棚后查看该大棚的环境数据、设备状态与未处理告警。</p>
+          <h2 class="section-title">大棚环境态势</h2>
+          <p class="muted">当前数据来自 {{ selectedGreenhouse?.name || '选中大棚' }}，用于判断羊肚菌生长环境是否稳定。</p>
         </div>
-        <div class="head-actions">
-          <el-select v-model="greenhouseId" style="width: 260px" @change="load">
-            <el-option v-for="item in overview.greenhouses" :key="item.id" :label="item.name" :value="item.id" />
-          </el-select>
-          <el-button type="primary" @click="greenhouseDialog = true">添加大棚</el-button>
-        </div>
+        <el-button @click="router.push('/traceability')">查看批次溯源</el-button>
       </div>
 
       <div class="env-grid">
@@ -62,9 +71,9 @@
     </section>
 
     <div class="split-grid">
-      <section class="panel">
+      <section ref="greenhouseSection" class="panel">
         <h2 class="section-title">大棚清单</h2>
-        <el-table :data="overview.greenhouses" style="width: 100%; margin-top: 12px">
+        <el-table :data="overview.greenhouses" style="width: 100%; margin-top: 12px" @row-click="selectGreenhouse">
           <el-table-column prop="name" label="大棚名称" min-width="180" />
           <el-table-column prop="location" label="位置" min-width="160" />
           <el-table-column prop="area" label="面积(㎡)" width="110" />
@@ -78,9 +87,12 @@
       </section>
 
       <section class="panel">
-        <h2 class="section-title">当前大棚待办</h2>
+        <div class="panel-head compact">
+          <h2 class="section-title">待处理告警</h2>
+          <el-button link type="primary" @click="router.push('/alerts?status=OPEN')">全部处理</el-button>
+        </div>
         <div class="alert-list">
-          <article v-for="alert in overview.activeAlerts" :key="alert.id">
+          <article v-for="alert in overview.activeAlerts" :key="alert.id" @click="router.push('/alerts?status=OPEN')">
             <el-tag :type="alert.level === 'CRITICAL' ? 'danger' : 'warning'">{{ levelText(alert.level) }}</el-tag>
             <div>
               <strong>{{ alert.title }}</strong>
@@ -97,7 +109,7 @@
         <el-form-item label="大棚名称"><el-input v-model.trim="greenhouseForm.name" /></el-form-item>
         <el-form-item label="位置"><el-input v-model.trim="greenhouseForm.location" /></el-form-item>
         <el-form-item label="面积(㎡)"><el-input-number v-model="greenhouseForm.area" :min="1" style="width: 100%" /></el-form-item>
-        <el-form-item label="生产阶段"><el-input v-model.trim="greenhouseForm.cropStage" placeholder="如 出菇期、育菇期、休整期" /></el-form-item>
+        <el-form-item label="生产阶段"><el-input v-model.trim="greenhouseForm.cropStage" placeholder="如：出菇期、育菇期、休整期" /></el-form-item>
         <el-button type="primary" :loading="saving" @click="submitGreenhouse">确认添加</el-button>
       </el-form>
     </el-dialog>
@@ -106,13 +118,16 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { createGreenhouse, fetchOverview } from '../services/greenhouse'
 
+const router = useRouter()
 const loading = ref(false)
 const saving = ref(false)
 const greenhouseDialog = ref(false)
 const greenhouseId = ref(null)
+const greenhouseSection = ref(null)
 const greenhouseForm = reactive({ name: '', location: '', area: 100, cropStage: '' })
 const overview = ref({
   greenhouses: [],
@@ -136,10 +151,21 @@ const load = async () => {
   loading.value = true
   try {
     overview.value = await fetchOverview(greenhouseId.value)
-    greenhouseId.value = overview.value.currentTelemetry?.greenhouseId || overview.value.greenhouses[0]?.id
+    greenhouseId.value = overview.value.currentTelemetry?.greenhouseId || greenhouseId.value || overview.value.greenhouses[0]?.id
   } finally {
     loading.value = false
   }
+}
+
+const selectGreenhouse = async (row) => {
+  greenhouseId.value = row.id
+  await load()
+}
+
+const scrollToGreenhouses = () => greenhouseSection.value?.$el?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+const focusGreenhouse = () => {
+  if (!selectedGreenhouse.value) return ElMessage.info('请先选择一个大棚')
+  scrollToGreenhouses()
 }
 
 const submitGreenhouse = async () => {
@@ -160,6 +186,52 @@ onMounted(load)
 </script>
 
 <style scoped>
+.hero-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at 16% 18%, rgba(54, 230, 166, 0.18), transparent 34%),
+    linear-gradient(135deg, rgba(17, 42, 39, 0.86), rgba(7, 20, 22, 0.76));
+  box-shadow: var(--shadow);
+}
+
+.eyebrow {
+  color: var(--brand);
+  font-weight: 900;
+}
+
+.hero-panel h2 {
+  margin: 8px 0;
+  color: #f7fffb;
+  font-size: 32px;
+}
+
+.hero-panel p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.hero-actions,
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.panel-head {
+  margin-bottom: 16px;
+}
+
+.panel-head.compact {
+  align-items: center;
+}
+
 .admin-summary,
 .env-grid {
   display: grid;
@@ -172,20 +244,12 @@ onMounted(load)
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #fff;
-}
-
-.summary-card span,
-.env-card span {
-  color: var(--muted);
-}
-
-.summary-card strong,
-.env-card strong {
-  display: block;
-  margin: 10px 0 4px;
-  color: #10251c;
-  font-size: 26px;
+  background: linear-gradient(145deg, rgba(17, 42, 39, 0.82), rgba(7, 20, 22, 0.76));
+  color: inherit;
+  text-align: left;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
 }
 
 .summary-card small,
@@ -194,21 +258,7 @@ onMounted(load)
 }
 
 .summary-card.danger strong {
-  color: #b42318;
-}
-
-.panel-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.head-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+  color: var(--danger);
 }
 
 .alert-list {
@@ -223,7 +273,8 @@ onMounted(load)
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--panel-soft);
+  background: rgba(255, 255, 255, 0.055);
+  cursor: pointer;
 }
 
 .alert-list p {
@@ -240,12 +291,14 @@ onMounted(load)
 
 @media (max-width: 720px) {
   .admin-summary,
-  .env-grid {
+  .env-grid,
+  .hero-panel {
     grid-template-columns: 1fr;
   }
 
+  .hero-panel,
   .panel-head,
-  .head-actions {
+  .hero-actions {
     flex-direction: column;
     align-items: stretch;
   }
