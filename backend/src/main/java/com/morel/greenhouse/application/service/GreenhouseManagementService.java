@@ -2,6 +2,7 @@ package com.morel.greenhouse.application.service;
 
 import com.morel.greenhouse.application.dto.CreateDeviceRequest;
 import com.morel.greenhouse.application.dto.CreateGreenhouseRequest;
+import com.morel.greenhouse.application.dto.HandleAlertRequest;
 import com.morel.greenhouse.shared.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,5 +72,41 @@ public class GreenhouseManagementService {
                 Boolean.TRUE.equals(request.autoMode())
         );
         log.info("Device created: greenhouseId={}, name={}, category={}", request.greenhouseId(), request.name(), request.category());
+    }
+
+    @Transactional
+    public void handleAlert(Long alertId, HandleAlertRequest request) {
+        String nextStatus = request.status().trim().toUpperCase();
+        if (!"ACKNOWLEDGED".equals(nextStatus) && !"RESOLVED".equals(nextStatus)) {
+            throw new BusinessException(400, "告警只能确认或解决");
+        }
+        Integer exists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM greenhouse_alert WHERE id = ?",
+                Integer.class,
+                alertId
+        );
+        if (exists == null || exists == 0) {
+            throw new BusinessException(404, "告警不存在");
+        }
+        String note = request.note() == null ? "" : request.note().trim();
+        if ("RESOLVED".equals(nextStatus) && note.isBlank()) {
+            throw new BusinessException(400, "解决告警时需要填写处理意见");
+        }
+        jdbcTemplate.update("""
+                UPDATE greenhouse_alert
+                SET status = ?,
+                    handled_by = ?,
+                    handle_note = ?,
+                    handled_at = CURRENT_TIMESTAMP,
+                    resolved_at = CASE WHEN ? = 'RESOLVED' THEN CURRENT_TIMESTAMP ELSE resolved_at END
+                WHERE id = ?
+                """,
+                nextStatus,
+                request.handler().trim(),
+                note,
+                nextStatus,
+                alertId
+        );
+        log.info("Alert handled: id={}, status={}, handler={}", alertId, nextStatus, request.handler());
     }
 }

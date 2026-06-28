@@ -46,6 +46,7 @@ public class DatabaseInitializer implements ApplicationRunner {
         populator.execute(dataSource);
         cleanupCorruptedSeedData();
         normalizeLegacyDeviceStatus();
+        normalizeDemoSeedText();
 
         Integer exists = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM app_user WHERE username = ?",
@@ -97,5 +98,36 @@ public class DatabaseInitializer implements ApplicationRunner {
         if (updated > 0) {
             log.info("Normalized legacy device status rows: count={}", updated);
         }
+    }
+
+    private void normalizeDemoSeedText() {
+        jdbcTemplate.update("""
+                UPDATE app_user
+                SET display_name = '示范农户',
+                    bio = '负责 A01 大棚日常巡检和出菇期管理',
+                    password_hash = ?
+                WHERE username = 'farmer001'
+                """, "{bcrypt}" + passwordEncoder.encode("123456"));
+        jdbcTemplate.update("""
+                UPDATE greenhouse
+                SET name = 'A01 羊肚菌智能大棚',
+                    location = '温室一区 / 北侧',
+                    crop_stage = '出菇期'
+                WHERE id = 1
+                """);
+        jdbcTemplate.update("""
+                UPDATE greenhouse_device
+                SET name = '循环风机组',
+                    category = '通风',
+                    location = '东侧风道'
+                WHERE id = 1
+                """);
+        jdbcTemplate.update("""
+                UPDATE greenhouse_alert
+                SET title = '湿度波动偏高',
+                    description = '连续 8 分钟超过目标上限 3.5%，请检查加湿策略和通风设备。',
+                    level = 'WARNING'
+                WHERE id = 1
+                """);
     }
 }

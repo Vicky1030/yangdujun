@@ -7,5 +7,6 @@ export const fetchDevices = (greenhouseId) => http.get('/greenhouses/devices', {
 export const createDevice = (payload) => http.post('/greenhouses/devices', payload)
 export const fetchAlerts = (greenhouseId) => http.get('/greenhouses/alerts', { params: { greenhouseId } })
 export const fetchAlertDetails = (greenhouseId) => http.get('/greenhouses/alerts/detail', { params: { greenhouseId } })
+export const handleAlert = (id, payload) => http.post(`/greenhouses/alerts/${id}/handle`, payload)
 export const fetchTraceability = (greenhouseId) => http.get('/greenhouses/traceability', { params: { greenhouseId } })
 export const sendDeviceCommand = (payload) => http.post('/greenhouses/devices/commands', payload)

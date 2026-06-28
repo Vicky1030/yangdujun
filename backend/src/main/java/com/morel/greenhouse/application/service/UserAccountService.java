@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -66,17 +67,59 @@ public class UserAccountService {
                 """);
     }
 
-    public Map<String, Object> operationLogs(int page, int size) {
+    public Map<String, Object> operationLogs(
+            int page,
+            int size,
+            String keyword,
+            String module,
+            String username,
+            Boolean success,
+            String startTime,
+            String endTime
+    ) {
         int normalizedPage = Math.max(page, 1);
         int normalizedSize = Math.min(Math.max(size, 1), 100);
         int offset = (normalizedPage - 1) * normalizedSize;
-        Long total = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM operation_log", Long.class);
+        StringBuilder where = new StringBuilder(" WHERE 1 = 1");
+        List<Object> params = new ArrayList<>();
+        appendLike(where, params, "module_name", module);
+        appendLike(where, params, "username", username);
+        if (keyword != null && !keyword.isBlank()) {
+            where.append(" AND (trace_id LIKE ? OR action_name LIKE ? OR request_uri LIKE ? OR message LIKE ?)");
+            String pattern = "%" + keyword.trim() + "%";
+            params.add(pattern);
+            params.add(pattern);
+            params.add(pattern);
+            params.add(pattern);
+        }
+        if (success != null) {
+            where.append(" AND success = ?");
+            params.add(success);
+        }
+        if (startTime != null && !startTime.isBlank()) {
+            where.append(" AND created_at >= ?");
+            params.add(startTime.trim());
+        }
+        if (endTime != null && !endTime.isBlank()) {
+            where.append(" AND created_at <= ?");
+            params.add(endTime.trim());
+        }
+
+        Long total = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM operation_log" + where,
+                Long.class,
+                params.toArray()
+        );
+        List<Object> pageParams = new ArrayList<>(params);
+        pageParams.add(normalizedSize);
+        pageParams.add(offset);
         List<Map<String, Object>> records = jdbcTemplate.queryForList("""
                 SELECT *
                 FROM operation_log
+                """ + where + """
                 ORDER BY created_at DESC
                 LIMIT ? OFFSET ?
-                """, normalizedSize, offset);
+                """, pageParams.toArray());
         long totalValue = total == null ? 0L : total;
         long pages = totalValue == 0 ? 0 : (totalValue + normalizedSize - 1) / normalizedSize;
         return Map.of(
@@ -90,6 +133,13 @@ public class UserAccountService {
 
     private String blankToDefault(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private void appendLike(StringBuilder where, List<Object> params, String column, String value) {
+        if (value != null && !value.isBlank()) {
+            where.append(" AND ").append(column).append(" LIKE ?");
+            params.add("%" + value.trim() + "%");
+        }
     }
 
     private String stringValue(Object value) {

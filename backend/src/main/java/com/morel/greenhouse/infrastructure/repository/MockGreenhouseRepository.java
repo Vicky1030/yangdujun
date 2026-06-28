@@ -69,7 +69,8 @@ public class MockGreenhouseRepository implements GreenhouseRepository {
     public List<AlertDetail> findAlertDetails(Long greenhouseId) {
         return findAlerts(greenhouseId).stream()
                 .map(alert -> new AlertDetail(alert.id(), alert.greenhouseId(), "示例大棚", null, "未绑定设备",
-                        alert.title(), alert.description(), alert.level().name(), alert.status().name(), alert.occurredAt()))
+                        alert.title(), alert.description(), alert.level().name(), alert.status().name(), alert.occurredAt(),
+                        null, null, null, null))
                 .toList();
     }
 

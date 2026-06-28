@@ -23,6 +23,7 @@ import java.util.UUID;
 public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final int SESSION_HOURS = 24;
 
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
@@ -53,7 +54,7 @@ public class AuthService {
         }
         jdbcTemplate.update("UPDATE app_user SET last_login_ip = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", clientIp, user.get("id"));
         log.info("User logged in: username={}, role={}, ip={}", user.get("username"), user.get("role_code"), clientIp);
-        return authPayload(user);
+        return authPayload(user, clientIp);
     }
 
     @Transactional
@@ -86,7 +87,7 @@ public class AuthService {
                 request.displayName() == null || request.displayName().isBlank() ? "" : request.displayName()
         );
         log.info("Farmer account registered: username={}, phone={}, email={}", request.username(), request.phone(), request.email());
-        return authPayload(findUserByUsername(request.username()));
+        return authPayload(findUserByUsername(request.username()), "");
     }
 
     public Map<String, String> sendCode(VerificationCodeRequest request) {
@@ -152,9 +153,21 @@ public class AuthService {
         return rows.stream().findFirst().orElseThrow(() -> new BusinessException(401, "用户名或密码错误"));
     }
 
-    private Map<String, Object> authPayload(Map<String, Object> user) {
+    private Map<String, Object> authPayload(Map<String, Object> user, String clientIp) {
+        String token = UUID.randomUUID().toString();
+        jdbcTemplate.update("""
+                INSERT INTO app_session(token, user_id, username, role_code, client_ip, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                token,
+                user.get("id"),
+                user.get("username"),
+                user.get("role_code"),
+                clientIp,
+                LocalDateTime.now().plusHours(SESSION_HOURS)
+        );
         return Map.of(
-                "token", UUID.randomUUID().toString(),
+                "token", token,
                 "profile", Map.of(
                         "id", user.get("id"),
                         "username", user.get("username"),

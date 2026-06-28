@@ -57,7 +57,8 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
     public List<AlertDetail> findAlertDetails(Long greenhouseId) {
         return jdbcTemplate.query("""
                 SELECT a.id, a.greenhouse_id, g.name AS greenhouse_name, a.device_id, d.name AS device_name,
-                       a.title, a.description, a.level, a.status, a.occurred_at
+                       a.title, a.description, a.level, a.status, a.occurred_at,
+                       a.handled_by, a.handle_note, a.handled_at, a.resolved_at
                 FROM greenhouse_alert a
                 JOIN greenhouse g ON g.id = a.greenhouse_id
                 LEFT JOIN greenhouse_device d ON d.id = a.device_id
@@ -145,7 +146,11 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
                 rs.getString("description"),
                 rs.getString("level"),
                 rs.getString("status"),
-                rs.getTimestamp("occurred_at").toLocalDateTime()
+                rs.getTimestamp("occurred_at").toLocalDateTime(),
+                rs.getString("handled_by"),
+                rs.getString("handle_note"),
+                rs.getTimestamp("handled_at") == null ? null : rs.getTimestamp("handled_at").toLocalDateTime(),
+                rs.getTimestamp("resolved_at") == null ? null : rs.getTimestamp("resolved_at").toLocalDateTime()
         );
     }
 

@@ -12,6 +12,10 @@ public record AlertDetail(
         String description,
         String level,
         String status,
-        LocalDateTime occurredAt
+        LocalDateTime occurredAt,
+        String handledBy,
+        String handleNote,
+        LocalDateTime handledAt,
+        LocalDateTime resolvedAt
 ) {
 }

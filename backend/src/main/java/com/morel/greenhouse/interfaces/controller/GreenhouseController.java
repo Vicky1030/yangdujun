@@ -5,6 +5,7 @@ import com.morel.greenhouse.application.dto.CreateDeviceRequest;
 import com.morel.greenhouse.application.dto.CreateGreenhouseRequest;
 import com.morel.greenhouse.application.dto.DashboardOverview;
 import com.morel.greenhouse.application.dto.DeviceCommandRequest;
+import com.morel.greenhouse.application.dto.HandleAlertRequest;
 import com.morel.greenhouse.application.service.DeviceCommandService;
 import com.morel.greenhouse.application.service.GreenhouseManagementService;
 import com.morel.greenhouse.application.service.GreenhouseQueryService;
@@ -16,6 +17,7 @@ import com.morel.greenhouse.domain.traceability.TraceabilityRecord;
 import com.morel.greenhouse.shared.api.ApiResult;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -87,6 +89,12 @@ public class GreenhouseController {
     @GetMapping("/alerts/detail")
     public ApiResult<List<AlertDetail>> alertDetails(@RequestParam(required = false) Long greenhouseId) {
         return ApiResult.ok(queryService.listAlertDetails(greenhouseId));
+    }
+
+    @PostMapping("/alerts/{id}/handle")
+    public ApiResult<Void> handleAlert(@PathVariable Long id, @Valid @RequestBody HandleAlertRequest request) {
+        managementService.handleAlert(id, request);
+        return ApiResult.ok();
     }
 
     @GetMapping("/traceability")

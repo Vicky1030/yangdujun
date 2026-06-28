@@ -65,6 +65,9 @@ CREATE TABLE IF NOT EXISTS greenhouse_alert (
 );
 
 ALTER TABLE greenhouse_alert ADD COLUMN IF NOT EXISTS device_id BIGINT REFERENCES greenhouse_device(id);
+ALTER TABLE greenhouse_alert ADD COLUMN IF NOT EXISTS handled_by VARCHAR(64);
+ALTER TABLE greenhouse_alert ADD COLUMN IF NOT EXISTS handle_note VARCHAR(500);
+ALTER TABLE greenhouse_alert ADD COLUMN IF NOT EXISTS handled_at TIMESTAMP;
 
 CREATE TABLE IF NOT EXISTS traceability_record (
   id BIGSERIAL PRIMARY KEY,
@@ -83,6 +86,17 @@ CREATE TABLE IF NOT EXISTS verification_code (
   code VARCHAR(12) NOT NULL,
   used BOOLEAN NOT NULL DEFAULT FALSE,
   expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS app_session (
+  token VARCHAR(64) PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES app_user(id),
+  username VARCHAR(64) NOT NULL,
+  role_code VARCHAR(32) NOT NULL,
+  client_ip VARCHAR(64),
+  expires_at TIMESTAMP NOT NULL,
+  revoked BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -114,6 +128,7 @@ CREATE TABLE IF NOT EXISTS operation_log (
 CREATE INDEX IF NOT EXISTS idx_telemetry_greenhouse_time ON telemetry_snapshot(greenhouse_id, collected_at DESC);
 CREATE INDEX IF NOT EXISTS idx_alert_status_level ON greenhouse_alert(status, level);
 CREATE INDEX IF NOT EXISTS idx_operation_log_created_at ON operation_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_session_user_expires ON app_session(user_id, expires_at DESC);
 
 CREATE OR REPLACE VIEW v_greenhouse_realtime AS
 SELECT g.id, g.name, g.status, t.temperature, t.humidity, t.light_lux, t.co2_ppm, t.soil_moisture, t.collected_at

@@ -58,9 +58,15 @@ public class UserController {
     @GetMapping("/operation-logs")
     public ApiResult<Map<String, Object>> operationLogs(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String module,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) Boolean success,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime
     ) {
-        return ApiResult.ok(userAccountService.operationLogs(page, size));
+        return ApiResult.ok(userAccountService.operationLogs(page, size, keyword, module, username, success, startTime, endTime));
     }
 
     private String clientIp(HttpServletRequest request) {
