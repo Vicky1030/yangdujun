@@ -7,6 +7,7 @@ public record Device(
         String category,
         DeviceStatus status,
         String location,
+        String remark,
         boolean autoMode,
         int healthScore
 ) {

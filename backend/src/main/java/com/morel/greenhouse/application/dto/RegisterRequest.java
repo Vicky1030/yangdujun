@@ -10,6 +10,7 @@ public record RegisterRequest(
         @NotBlank String phone,
         @NotBlank @Email String email,
         String displayName,
+        String gender,
         @NotBlank String verificationCode
 ) {
 }

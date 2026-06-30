@@ -17,9 +17,12 @@ export const useSessionStore = defineStore('session', {
     },
     setSession(data) {
       this.token = data.token
-      this.profile = data.profile
+      this.profile = {
+        ...data.profile,
+        role: data.profile?.role ? String(data.profile.role).trim().toUpperCase() : data.profile?.role
+      }
       localStorage.setItem('greenhouse_token', data.token)
-      localStorage.setItem('greenhouse_profile', JSON.stringify(data.profile))
+      localStorage.setItem('greenhouse_profile', JSON.stringify(this.profile))
     },
     signOut() {
       this.token = ''

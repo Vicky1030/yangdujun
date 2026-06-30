@@ -38,8 +38,8 @@ public class AuthController {
     }
 
     @PostMapping("/codes")
-    public ApiResult<Map<String, String>> sendCode(@Valid @RequestBody VerificationCodeRequest request) {
-        return ApiResult.ok(authService.sendCode(request));
+    public ApiResult<Map<String, String>> sendCode(@Valid @RequestBody VerificationCodeRequest request, HttpServletRequest servletRequest) {
+        return ApiResult.ok(authService.sendCode(request, clientIp(servletRequest)));
     }
 
     @PostMapping("/password/reset")

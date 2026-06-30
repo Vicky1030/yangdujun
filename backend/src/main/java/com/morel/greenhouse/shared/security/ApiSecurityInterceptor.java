@@ -3,8 +3,8 @@ package com.morel.greenhouse.shared.security;
 import com.morel.greenhouse.shared.exception.BusinessException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.slf4j.MDC;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -61,6 +61,7 @@ public class ApiSecurityInterceptor implements HandlerInterceptor {
                   AND s.revoked = FALSE
                   AND s.expires_at > CURRENT_TIMESTAMP
                   AND u.enabled = TRUE
+                  AND u.deleted = FALSE
                 """, token);
         if (rows.isEmpty()) {
             throw new BusinessException(401, "登录已过期，请重新登录");
@@ -89,12 +90,17 @@ public class ApiSecurityInterceptor implements HandlerInterceptor {
         String uri = request.getRequestURI();
         String method = request.getMethod();
         return ("GET".equals(method) && uri.equals("/api/v1/users"))
+                || ("POST".equals(method) && uri.equals("/api/v1/users"))
+                || ("PUT".equals(method) && uri.matches("/api/v1/users/\\d+"))
+                || ("DELETE".equals(method) && uri.matches("/api/v1/users/\\d+"))
+                || ("GET".equals(method) && uri.matches("/api/v1/users/\\d+/greenhouses"))
+                || ("POST".equals(method) && uri.matches("/api/v1/users/\\d+/greenhouses"))
                 || ("GET".equals(method) && uri.equals("/api/v1/users/feedback"))
-                || ("GET".equals(method) && uri.equals("/api/v1/users/operation-logs"))
                 || ("POST".equals(method) && uri.equals("/api/v1/greenhouses"))
-                || ("POST".equals(method) && uri.equals("/api/v1/greenhouses/devices"))
+                || ("PUT".equals(method) && uri.matches("/api/v1/greenhouses/\\d+"))
+                || ("DELETE".equals(method) && uri.matches("/api/v1/greenhouses/\\d+"))
                 || ("POST".equals(method) && uri.equals("/api/v1/greenhouses/devices/commands"))
-                || ("POST".equals(method) && uri.matches("/api/v1/greenhouses/alerts/\\d+/handle"));
+                || ("POST".equals(method) && uri.matches("/api/v1/greenhouses/alerts/\\d+/command"));
     }
 
     private boolean profileEndpoint(HttpServletRequest request) {

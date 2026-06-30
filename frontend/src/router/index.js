@@ -9,8 +9,9 @@ import TraceabilityView from '../views/TraceabilityView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import UserAdminView from '../views/UserAdminView.vue'
 import FeedbackAdminView from '../views/FeedbackAdminView.vue'
-import OperationLogView from '../views/OperationLogView.vue'
 import FarmerHomeView from '../views/FarmerHomeView.vue'
+import FarmerFeedbackView from '../views/FarmerFeedbackView.vue'
+import FarmerAnalyticsView from '../views/FarmerAnalyticsView.vue'
 
 const routes = [
   { path: '/login', component: LoginView },
@@ -18,15 +19,16 @@ const routes = [
     path: '/',
     component: ConsoleLayout,
     children: [
-      { path: '', name: 'dashboard', component: DashboardView, meta: { title: '管理总览' } },
+      { path: '', name: 'dashboard', component: DashboardView, meta: { title: '管理总览', role: 'ADMIN' } },
+      { path: 'farmer', name: 'farmer', component: FarmerHomeView, meta: { title: '农户工作台' } },
       { path: 'devices', name: 'devices', component: DeviceView, meta: { title: '设备管理' } },
       { path: 'alerts', name: 'alerts', component: AlertView, meta: { title: '告警中心' } },
+      { path: 'analytics', name: 'farmerAnalytics', component: FarmerAnalyticsView, meta: { title: '数据分析', role: 'FARMER' } },
       { path: 'traceability', name: 'traceability', component: TraceabilityView, meta: { title: '批次溯源' } },
       { path: 'profile', name: 'profile', component: ProfileView, meta: { title: '个人中心' } },
       { path: 'users', name: 'users', component: UserAdminView, meta: { title: '农户管理', role: 'ADMIN' } },
       { path: 'feedback', name: 'feedback', component: FeedbackAdminView, meta: { title: '反馈处理', role: 'ADMIN' } },
-      { path: 'logs', name: 'logs', component: OperationLogView, meta: { title: '操作审计', role: 'ADMIN' } },
-      { path: 'farmer', name: 'farmer', component: FarmerHomeView, meta: { title: '农户工作台' } }
+      { path: 'farmer-feedback', name: 'farmerFeedback', component: FarmerFeedbackView, meta: { title: '问题反馈' } }
     ]
   }
 ]
@@ -38,14 +40,18 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const session = useSessionStore()
+  const role = session.profile?.role
   if (to.path !== '/login' && !session.token) {
     return '/login'
   }
-  if (to.meta.role && session.profile?.role !== to.meta.role) {
-    return '/'
-  }
   if (to.path === '/login' && session.token) {
-    return '/'
+    return role === 'ADMIN' ? '/' : '/farmer'
+  }
+  if (to.meta.role && role !== to.meta.role) {
+    return role === 'ADMIN' ? '/' : '/farmer'
+  }
+  if (to.name === 'dashboard' && role && role !== 'ADMIN') {
+    return '/farmer'
   }
   return true
 })

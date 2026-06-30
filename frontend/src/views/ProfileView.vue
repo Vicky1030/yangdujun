@@ -1,96 +1,131 @@
 <template>
-  <div class="split-grid">
-    <section class="panel">
-      <h2 class="section-title">个人中心</h2>
-      <div class="profile-head">
-        <el-upload :show-file-list="false" :auto-upload="false" accept="image/*" @change="onAvatarChange">
-          <el-avatar :size="86" :src="form.avatarUrl">{{ avatarText }}</el-avatar>
-        </el-upload>
-        <div>
-          <strong>{{ titleName }}</strong>
-          <p class="muted">IP 方位：{{ ipLocationText }}</p>
-        </div>
+  <section class="panel profile-page" v-loading="loading">
+    <div class="profile-head">
+      <el-upload :show-file-list="false" :auto-upload="false" accept="image/*" @change="onAvatarChange">
+        <el-avatar :size="86" :src="form.avatarUrl">{{ avatarText }}</el-avatar>
+      </el-upload>
+      <div>
+        <h2 class="section-title">{{ form.username || '个人中心' }}</h2>
+        <p class="muted">IP 方位：{{ ipLocationText }}</p>
       </div>
-      <el-form label-width="96px" style="margin-top: 18px">
-        <el-form-item label="用户名"><el-input v-model="form.username" :disabled="form.username === 'admin'" /></el-form-item>
-        <el-form-item label="手机号"><el-input v-model="form.phone" /></el-form-item>
-        <el-form-item label="邮箱"><el-input v-model="form.email" /></el-form-item>
-        <el-form-item v-if="form.username !== 'admin'" label="昵称"><el-input v-model="form.displayName" /></el-form-item>
-        <el-form-item label="性别">
-          <el-select v-model="form.gender" style="width: 100%">
-            <el-option label="男" value="MALE" />
-            <el-option label="女" value="FEMALE" />
-            <el-option label="未设置" value="UNKNOWN" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="个人简介"><el-input v-model="form.bio" type="textarea" :rows="4" /></el-form-item>
-        <el-button type="primary" @click="save">保存资料</el-button>
-      </el-form>
-    </section>
+    </div>
 
-    <section class="panel">
-      <h2 class="section-title">问题反馈</h2>
-      <el-form style="margin-top: 18px" label-position="top">
-        <el-form-item label="问题类型"><el-input v-model="feedback.category" placeholder="功能建议 / 设备异常 / 数据问题" /></el-form-item>
-        <el-form-item label="联系方式"><el-input v-model="feedback.contact" /></el-form-item>
-        <el-form-item label="反馈内容"><el-input v-model="feedback.content" type="textarea" :rows="7" /></el-form-item>
-        <el-button type="primary" @click="submit">提交反馈</el-button>
-      </el-form>
-    </section>
-  </div>
+    <el-form label-width="116px" class="profile-form">
+      <el-form-item label="用户名">
+        <el-input v-model.trim="form.username" />
+      </el-form-item>
+      <el-form-item v-if="!isAdmin" label="昵称">
+        <el-input v-model.trim="form.displayName" />
+      </el-form-item>
+      <el-form-item label="手机号">
+        <el-input v-model.trim="form.phone" />
+      </el-form-item>
+      <el-form-item label="邮箱">
+        <el-input v-model.trim="form.email" />
+      </el-form-item>
+      <el-form-item label="性别">
+        <el-select v-model="form.gender" style="width: 100%">
+          <el-option label="男" value="MALE" />
+          <el-option label="女" value="FEMALE" />
+          <el-option label="未设置" value="UNKNOWN" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="个人简介">
+        <el-input v-model="form.bio" type="textarea" :rows="4" />
+      </el-form-item>
+      <el-form-item v-if="isAdmin" label="删除授权">
+        <el-switch
+          v-model="form.allowAdminDelete"
+          active-text="允许其他管理员删除此账号"
+          inactive-text="不允许删除"
+        />
+      </el-form-item>
+      <div class="form-actions">
+        <el-button type="primary" :loading="saving" @click="save">保存资料</el-button>
+      </div>
+    </el-form>
+  </section>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSessionStore } from '../stores/session'
-import { fetchProfile, submitFeedback, updateProfile } from '../services/user'
+import { fetchProfile, updateProfile } from '../services/user'
 
 const session = useSessionStore()
-const form = reactive({})
-const feedback = reactive({ category: '', contact: '', content: '' })
+const loading = ref(false)
+const saving = ref(false)
+const form = reactive({
+  username: '',
+  phone: '',
+  email: '',
+  displayName: '',
+  avatarUrl: '',
+  gender: 'UNKNOWN',
+  bio: '',
+  allowAdminDelete: false,
+  lastLoginIp: ''
+})
 
-const avatarText = computed(() => (form.username === 'admin' ? '管' : (form.displayName || form.username || '用').slice(0, 1)))
-const titleName = computed(() => form.username === 'admin' ? '管理员' : (form.displayName || form.username || '用户'))
+const isAdmin = computed(() => session.profile?.role === 'ADMIN')
+const avatarText = computed(() => (form.username || '用').slice(0, 1))
 const ipLocationText = computed(() => formatIpLocation(form.realtimeIp || form.lastLoginIp))
 
 const formatIpLocation = ip => {
   if (!ip) return '未知'
-  if (ip === '0:0:0:0:0:0:0:1' || ip === '::1' || ip === '127.0.0.1') {
-    return '辽宁省沈阳市（本机访问）'
-  }
-  if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) {
-    return '局域网访问（接入 IP 地址库后显示省市）'
-  }
-  return `公网 IP：${ip}（接入 IP 地址库后显示省市）`
+  if (ip === '0:0:0:0:0:0:0:1' || ip === '::1' || ip === '127.0.0.1') return '辽宁省沈阳市（本机访问）'
+  if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) return '局域网访问'
+  return `公网 IP：${ip}`
 }
 
 const load = async () => {
-  Object.assign(form, await fetchProfile(session.profile.id))
+  loading.value = true
+  try {
+    const profile = await fetchProfile(session.profile.id)
+    Object.assign(form, {
+      ...profile,
+      displayName: profile.display_name || profile.displayName || '',
+      avatarUrl: profile.avatar_url || profile.avatarUrl || '',
+      allowAdminDelete: Boolean(profile.allow_admin_delete ?? profile.allowAdminDelete)
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
 const save = async () => {
-  if (form.username === 'admin') {
-    form.displayName = '管理员'
+  if (!form.username) return ElMessage.warning('用户名不能为空')
+  if (isAdmin.value && !form.username.toLowerCase().startsWith('admin')) {
+    return ElMessage.warning('管理员用户名必须以 admin 开头')
   }
-  const profile = await updateProfile(session.profile.id, form)
-  Object.assign(form, profile)
-  session.profile = { ...session.profile, ...profile }
-  localStorage.setItem('greenhouse_profile', JSON.stringify(session.profile))
-  ElMessage.success('资料已保存')
+  saving.value = true
+  try {
+    const profile = await updateProfile(session.profile.id, {
+      username: form.username,
+      phone: form.phone,
+      email: form.email,
+      displayName: isAdmin.value ? '' : form.displayName,
+      avatarUrl: form.avatarUrl,
+      gender: form.gender,
+      bio: form.bio,
+      allowAdminDelete: form.allowAdminDelete
+    })
+    Object.assign(form, {
+      ...profile,
+      displayName: profile.display_name || profile.displayName || '',
+      avatarUrl: profile.avatar_url || profile.avatarUrl || '',
+      allowAdminDelete: Boolean(profile.allow_admin_delete ?? profile.allowAdminDelete)
+    })
+    session.profile = { ...session.profile, ...profile, username: profile.username }
+    localStorage.setItem('greenhouse_profile', JSON.stringify(session.profile))
+    ElMessage.success('资料已保存')
+  } finally {
+    saving.value = false
+  }
 }
 
-const submit = async () => {
-  if (!feedback.category) return ElMessage.warning('请填写问题类型')
-  if (!feedback.content) return ElMessage.warning('请填写反馈内容')
-  await submitFeedback({ ...feedback, userId: session.profile.id })
-  feedback.category = ''
-  feedback.contact = ''
-  feedback.content = ''
-  ElMessage.success('反馈已提交')
-}
-
-const onAvatarChange = (file) => {
+const onAvatarChange = file => {
   const reader = new FileReader()
   reader.onload = () => {
     form.avatarUrl = reader.result
@@ -102,6 +137,7 @@ onMounted(load)
 </script>
 
 <style scoped>
+.profile-page { max-width: 920px; }
 .profile-head {
   display: flex;
   gap: 18px;
@@ -109,11 +145,8 @@ onMounted(load)
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.74);
 }
-
-.profile-head strong {
-  color: #f7fffb;
-  font-size: 20px;
-}
+.profile-form { margin-top: 24px; max-width: 680px; }
+.form-actions { display: flex; justify-content: flex-end; }
 </style>

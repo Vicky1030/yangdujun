@@ -6,6 +6,6 @@ public record CurrentUser(
         String role
 ) {
     public boolean admin() {
-        return "ADMIN".equals(role);
+        return role != null && "ADMIN".equals(role.trim().toUpperCase());
     }
 }

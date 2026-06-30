@@ -1,11 +1,17 @@
 package com.morel.greenhouse.interfaces.controller;
 
+import com.morel.greenhouse.application.dto.BindGreenhousesRequest;
 import com.morel.greenhouse.application.dto.FeedbackRequest;
+import com.morel.greenhouse.application.dto.FeedbackMessageRequest;
 import com.morel.greenhouse.application.dto.ProfileUpdateRequest;
+import com.morel.greenhouse.application.dto.SaveUserRequest;
 import com.morel.greenhouse.application.service.UserAccountService;
 import com.morel.greenhouse.shared.api.ApiResult;
+import com.morel.greenhouse.shared.security.ApiSecurityInterceptor;
+import com.morel.greenhouse.shared.security.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,23 +56,62 @@ public class UserController {
         return ApiResult.ok(userAccountService.users());
     }
 
-    @GetMapping("/feedback")
-    public ApiResult<List<Map<String, Object>>> feedbacks() {
-        return ApiResult.ok(userAccountService.feedbacks());
+    @PostMapping
+    public ApiResult<Map<String, Object>> createUser(@Valid @RequestBody SaveUserRequest request) {
+        Long id = userAccountService.createUser(request);
+        return ApiResult.ok(Map.of("id", id));
     }
 
-    @GetMapping("/operation-logs")
-    public ApiResult<Map<String, Object>> operationLogs(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size,
+    @PutMapping("/{id}")
+    public ApiResult<Void> updateUser(@PathVariable Long id, @Valid @RequestBody SaveUserRequest request) {
+        userAccountService.updateUser(id, request);
+        return ApiResult.ok();
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResult<Void> deleteUser(@PathVariable Long id, HttpServletRequest request) {
+        userAccountService.deleteUser(id, currentUser(request));
+        return ApiResult.ok();
+    }
+
+    @GetMapping("/admins")
+    public ApiResult<List<Map<String, Object>>> admins() {
+        return ApiResult.ok(userAccountService.admins());
+    }
+
+    @GetMapping("/{id}/greenhouses")
+    public ApiResult<List<Map<String, Object>>> farmerGreenhouses(@PathVariable Long id) {
+        return ApiResult.ok(userAccountService.farmerGreenhouseIds(id));
+    }
+
+    @PostMapping("/{id}/greenhouses")
+    public ApiResult<Void> bindGreenhouses(@PathVariable Long id, @RequestBody BindGreenhousesRequest request, HttpServletRequest servletRequest) {
+        userAccountService.bindGreenhouses(id, request, currentUser(servletRequest));
+        return ApiResult.ok();
+    }
+
+    @GetMapping("/feedback")
+    public ApiResult<List<Map<String, Object>>> feedbacks(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String module,
-            @RequestParam(required = false) String username,
-            @RequestParam(required = false) Boolean success,
-            @RequestParam(required = false) String startTime,
-            @RequestParam(required = false) String endTime
+            @RequestParam(required = false) String status
     ) {
-        return ApiResult.ok(userAccountService.operationLogs(page, size, keyword, module, username, success, startTime, endTime));
+        return ApiResult.ok(userAccountService.feedbacks(keyword, status));
+    }
+
+    @GetMapping("/feedback/conversations")
+    public ApiResult<List<Map<String, Object>>> feedbackConversations(HttpServletRequest request) {
+        return ApiResult.ok(userAccountService.feedbackConversations(currentUser(request)));
+    }
+
+    @GetMapping("/feedback/conversations/{id}/messages")
+    public ApiResult<List<Map<String, Object>>> feedbackMessages(@PathVariable Long id, HttpServletRequest request) {
+        return ApiResult.ok(userAccountService.feedbackMessages(currentUser(request), id));
+    }
+
+    @PostMapping("/feedback/messages")
+    public ApiResult<Void> sendFeedbackMessage(@Valid @RequestBody FeedbackMessageRequest request, HttpServletRequest servletRequest) {
+        userAccountService.sendFeedbackMessage(currentUser(servletRequest), request);
+        return ApiResult.ok();
     }
 
     private String clientIp(HttpServletRequest request) {
@@ -75,5 +120,9 @@ public class UserController {
             return forwarded.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private CurrentUser currentUser(HttpServletRequest request) {
+        return (CurrentUser) request.getAttribute(ApiSecurityInterceptor.CURRENT_USER_ATTRIBUTE);
     }
 }

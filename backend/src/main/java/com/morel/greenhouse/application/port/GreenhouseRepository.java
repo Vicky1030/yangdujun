@@ -14,6 +14,8 @@ import java.util.Optional;
 public interface GreenhouseRepository {
     List<Greenhouse> findGreenhouses();
 
+    List<Greenhouse> findGreenhousesByOwner(Long ownerUserId);
+
     Optional<TelemetrySnapshot> findCurrentTelemetry(Long greenhouseId);
 
     List<Device> findDevices(Long greenhouseId);

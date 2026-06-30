@@ -32,7 +32,21 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
 
     @Override
     public List<Greenhouse> findGreenhouses() {
-        return jdbcTemplate.query("SELECT * FROM greenhouse ORDER BY id", this::mapGreenhouse);
+        return jdbcTemplate.query("SELECT * FROM greenhouse WHERE deleted = FALSE ORDER BY id", this::mapGreenhouse);
+    }
+
+    @Override
+    public List<Greenhouse> findGreenhousesByOwner(Long ownerUserId) {
+        return jdbcTemplate.query("""
+                SELECT g.*
+                FROM greenhouse g
+                LEFT JOIN farmer_greenhouse_binding b ON b.greenhouse_id = g.id AND b.deleted = FALSE
+                WHERE g.deleted = FALSE
+                  AND (g.owner_user_id = ? OR b.farmer_user_id = ?)
+                GROUP BY g.id, g.owner_user_id, g.name, g.location, g.status, g.area, g.crop_stage,
+                         g.deleted, g.created_by, g.updated_by, g.deleted_by, g.created_at, g.updated_at, g.deleted_at
+                ORDER BY g.id
+                """, this::mapGreenhouse, ownerUserId, ownerUserId);
     }
 
     @Override
@@ -45,12 +59,12 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
 
     @Override
     public List<Device> findDevices(Long greenhouseId) {
-        return jdbcTemplate.query("SELECT * FROM greenhouse_device WHERE greenhouse_id = ? ORDER BY id", this::mapDevice, greenhouseId);
+        return jdbcTemplate.query("SELECT * FROM greenhouse_device WHERE greenhouse_id = ? AND deleted = FALSE ORDER BY id", this::mapDevice, greenhouseId);
     }
 
     @Override
     public List<GreenhouseAlert> findAlerts(Long greenhouseId) {
-        return jdbcTemplate.query("SELECT * FROM greenhouse_alert WHERE greenhouse_id = ? ORDER BY occurred_at DESC", this::mapAlert, greenhouseId);
+        return jdbcTemplate.query("SELECT * FROM greenhouse_alert WHERE greenhouse_id = ? AND deleted = FALSE ORDER BY occurred_at DESC", this::mapAlert, greenhouseId);
     }
 
     @Override
@@ -61,21 +75,23 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
                        a.handled_by, a.handle_note, a.handled_at, a.resolved_at
                 FROM greenhouse_alert a
                 JOIN greenhouse g ON g.id = a.greenhouse_id
-                LEFT JOIN greenhouse_device d ON d.id = a.device_id
+                LEFT JOIN greenhouse_device d ON d.id = a.device_id AND d.deleted = FALSE
                 WHERE (? IS NULL OR a.greenhouse_id = ?)
+                  AND a.deleted = FALSE
+                  AND g.deleted = FALSE
                 ORDER BY a.occurred_at DESC
                 """, this::mapAlertDetail, greenhouseId, greenhouseId);
     }
 
     @Override
     public List<TraceabilityRecord> findTraceabilityRecords(Long greenhouseId) {
-        return jdbcTemplate.query("SELECT * FROM traceability_record WHERE greenhouse_id = ? ORDER BY operation_date DESC", this::mapTraceability, greenhouseId);
+        return jdbcTemplate.query("SELECT * FROM traceability_record WHERE greenhouse_id = ? AND deleted = FALSE ORDER BY operation_date DESC", this::mapTraceability, greenhouseId);
     }
 
     @Override
     public Optional<OperatorProfile> findOperator(String username) {
         List<OperatorProfile> rows = jdbcTemplate.query("""
-                SELECT id, username, display_name, phone, email, role_code, bio FROM app_user WHERE username = ?
+                SELECT id, username, display_name, phone, email, role_code, bio FROM app_user WHERE username = ? AND deleted = FALSE
                 """, (rs, rowNum) -> new OperatorProfile(
                 rs.getLong("id"),
                 rs.getString("username"),
@@ -90,6 +106,7 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
     private Greenhouse mapGreenhouse(ResultSet rs, int rowNum) throws SQLException {
         return new Greenhouse(
                 rs.getLong("id"),
+                rs.getObject("owner_user_id") == null ? null : rs.getLong("owner_user_id"),
                 rs.getString("name"),
                 rs.getString("location"),
                 GreenhouseStatus.valueOf(rs.getString("status")),
@@ -118,6 +135,7 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
                 rs.getString("category"),
                 mapDeviceStatus(rs.getString("status")),
                 rs.getString("location"),
+                rs.getString("remark"),
                 rs.getBoolean("auto_mode"),
                 rs.getInt("health_score")
         );

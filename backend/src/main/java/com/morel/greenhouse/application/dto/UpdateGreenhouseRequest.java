@@ -3,12 +3,12 @@ package com.morel.greenhouse.application.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-public record CreateDeviceRequest(
-        @NotNull Long greenhouseId,
+public record UpdateGreenhouseRequest(
         @NotBlank String name,
-        @NotBlank String category,
         String location,
-        String remark,
-        Boolean autoMode
+        @NotBlank String status,
+        @NotNull Double area,
+        String cropStage,
+        Long ownerUserId
 ) {
 }

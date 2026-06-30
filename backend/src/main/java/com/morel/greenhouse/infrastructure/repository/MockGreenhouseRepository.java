@@ -1,7 +1,7 @@
 package com.morel.greenhouse.infrastructure.repository;
 
-import com.morel.greenhouse.application.port.GreenhouseRepository;
 import com.morel.greenhouse.application.dto.AlertDetail;
+import com.morel.greenhouse.application.port.GreenhouseRepository;
 import com.morel.greenhouse.domain.alert.AlertLevel;
 import com.morel.greenhouse.domain.alert.AlertStatus;
 import com.morel.greenhouse.domain.alert.GreenhouseAlert;
@@ -27,10 +27,17 @@ public class MockGreenhouseRepository implements GreenhouseRepository {
     @Override
     public List<Greenhouse> findGreenhouses() {
         return List.of(
-                new Greenhouse(1L, "A01 智能育菇棚", "温室一区 / 北侧", GreenhouseStatus.ONLINE, 420.0, "出菇期"),
-                new Greenhouse(2L, "B03 恒湿试验棚", "温室二区 / 东侧", GreenhouseStatus.WARNING, 360.0, "菌丝恢复期"),
-                new Greenhouse(3L, "C02 低温培育棚", "温室三区 / 西侧", GreenhouseStatus.ONLINE, 500.0, "采收期")
+                new Greenhouse(1L, 2L, "A01 羊肚菌智能大棚", "温室一区 / 北侧", GreenhouseStatus.ONLINE, 420.0, "出菇期"),
+                new Greenhouse(2L, 2L, "B03 恒湿试验棚", "温室二区 / 东侧", GreenhouseStatus.WARNING, 360.0, "菌丝恢复期"),
+                new Greenhouse(3L, null, "C02 低温培育棚", "温室三区 / 西侧", GreenhouseStatus.ONLINE, 500.0, "采收期")
         );
+    }
+
+    @Override
+    public List<Greenhouse> findGreenhousesByOwner(Long ownerUserId) {
+        return findGreenhouses().stream()
+                .filter(item -> ownerUserId != null && ownerUserId.equals(item.ownerUserId()))
+                .toList();
     }
 
     @Override
@@ -49,10 +56,10 @@ public class MockGreenhouseRepository implements GreenhouseRepository {
     @Override
     public List<Device> findDevices(Long greenhouseId) {
         return List.of(
-                new Device(1001L, greenhouseId, "循环风机组", "通风", DeviceStatus.RUNNING, "东侧风道", true, 96),
-                new Device(1002L, greenhouseId, "雾化加湿阵列", "湿度", DeviceStatus.RUNNING, "顶部管线", true, 92),
-                new Device(1003L, greenhouseId, "补光灯带", "光照", DeviceStatus.STOPPED, "中轴棚架", false, 89),
-                new Device(1004L, greenhouseId, "二氧化碳阀组", "气体", DeviceStatus.MAINTENANCE, "南侧设备间", false, 73)
+                new Device(1001L, greenhouseId, "循环风机组", "通风", DeviceStatus.RUNNING, "东侧风道", "负责棚内空气循环", true, 96),
+                new Device(1002L, greenhouseId, "雾化加湿阵列", "加湿", DeviceStatus.RUNNING, "顶部管线", "维持羊肚菌出菇湿度", true, 92),
+                new Device(1003L, greenhouseId, "补光灯带", "补光", DeviceStatus.STOPPED, "中轴棚架", "夜间弱光补偿", false, 89),
+                new Device(1004L, greenhouseId, "CO2 调控阀组", "气体", DeviceStatus.MAINTENANCE, "南侧设备间", "二氧化碳联动调节", false, 73)
         );
     }
 
@@ -85,6 +92,6 @@ public class MockGreenhouseRepository implements GreenhouseRepository {
 
     @Override
     public Optional<OperatorProfile> findOperator(String username) {
-        return Optional.of(new OperatorProfile(1L, username, "系统管理员", "13800000000", "园区管理员", "智慧农业示范基地"));
+        return Optional.of(new OperatorProfile(1L, username, "系统管理员", "13800000000", "ADMIN", "智慧农业示范基地"));
     }
 }

@@ -10,9 +10,13 @@
       </div>
 
       <el-menu router :default-active="$route.path" class="nav">
-        <el-menu-item index="/">
+        <el-menu-item v-if="isAdmin" index="/">
           <el-icon><DataAnalysis /></el-icon>
           <span>管理总览</span>
+        </el-menu-item>
+        <el-menu-item v-else index="/farmer">
+          <el-icon><House /></el-icon>
+          <span>农户工作台</span>
         </el-menu-item>
         <el-menu-item index="/devices">
           <el-icon><Operation /></el-icon>
@@ -22,15 +26,23 @@
           <el-icon><Warning /></el-icon>
           <span>告警中心</span>
         </el-menu-item>
+        <el-menu-item v-if="!isAdmin" index="/analytics">
+          <el-icon><TrendCharts /></el-icon>
+          <span>数据分析</span>
+        </el-menu-item>
         <el-menu-item index="/traceability">
           <el-icon><Tickets /></el-icon>
           <span>批次溯源</span>
+        </el-menu-item>
+        <el-menu-item v-if="!isAdmin" index="/farmer-feedback">
+          <el-icon><ChatDotRound /></el-icon>
+          <span>问题反馈</span>
         </el-menu-item>
         <el-menu-item index="/profile">
           <el-icon><User /></el-icon>
           <span>个人中心</span>
         </el-menu-item>
-        <template v-if="session.profile?.role === 'ADMIN'">
+        <template v-if="isAdmin">
           <el-menu-item index="/users">
             <el-icon><UserFilled /></el-icon>
             <span>农户管理</span>
@@ -39,26 +51,17 @@
             <el-icon><ChatDotRound /></el-icon>
             <span>反馈处理</span>
           </el-menu-item>
-          <el-menu-item index="/logs">
-            <el-icon><Document /></el-icon>
-            <span>操作审计</span>
-          </el-menu-item>
         </template>
-        <el-menu-item v-else index="/farmer">
-          <el-icon><House /></el-icon>
-          <span>农户工作台</span>
-        </el-menu-item>
       </el-menu>
     </el-aside>
 
-    <el-container>
+    <el-container class="console__body">
       <el-header class="console__header">
         <div>
           <p>{{ currentDate }}</p>
           <h1>{{ $route.meta.title || '智慧大棚控制台' }}</h1>
         </div>
         <div class="header-actions">
-          <span class="system-pill"><span class="status-dot" />物联感知在线</span>
           <el-dropdown>
             <span class="operator">{{ operatorName }}</span>
             <template #dropdown>
@@ -80,13 +83,14 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChatDotRound, DataAnalysis, Document, House, Operation, Tickets, User, UserFilled, Warning } from '@element-plus/icons-vue'
+import { ChatDotRound, DataAnalysis, House, Operation, Tickets, TrendCharts, User, UserFilled, Warning } from '@element-plus/icons-vue'
 import { useSessionStore } from '../stores/session'
 
 const router = useRouter()
 const session = useSessionStore()
+const isAdmin = computed(() => session.profile?.role === 'ADMIN')
 const currentDate = computed(() => new Date().toLocaleString('zh-CN'))
-const operatorName = computed(() => session.profile?.username === 'admin' ? '管理员' : (session.profile?.displayName || session.profile?.username || '用户'))
+const operatorName = computed(() => session.profile?.username || '用户')
 
 const logout = () => {
   session.signOut()
@@ -95,146 +99,66 @@ const logout = () => {
 </script>
 
 <style scoped>
-.console {
-  min-height: 100vh;
-}
-
+.console { min-height: 100vh; }
 .console__aside {
-  position: relative;
-  z-index: 2;
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 10;
   border-right: 1px solid var(--line);
-  background:
-    radial-gradient(circle at 28% 6%, rgba(168, 211, 111, 0.22), transparent 28%),
-    linear-gradient(180deg, rgba(15, 32, 22, 0.98), rgba(5, 13, 9, 0.94));
-  color: #fff;
-  box-shadow: 22px 0 72px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(20px);
+  background: linear-gradient(180deg, #ffffff, #eff8eb);
+  box-shadow: 16px 0 48px rgba(42, 91, 48, 0.1);
 }
-
-.console__aside::after {
-  content: "";
-  position: absolute;
-  inset: 92px 18px auto 18px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(168, 211, 111, 0.46), transparent);
-}
-
-.brand {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 24px 20px;
-}
-
+.console__body { min-height: 100vh; margin-left: 248px; }
+.brand { display: flex; gap: 12px; align-items: center; padding: 24px 20px; }
 .brand__mark {
   display: grid;
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid rgba(168, 211, 111, 0.48);
   border-radius: 8px;
-  background:
-    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.42), transparent 30%),
-    linear-gradient(135deg, var(--brand), var(--brand-strong));
-  color: #07110d;
+  background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+  color: #fff;
   font-weight: 900;
-  box-shadow: 0 0 28px rgba(168, 211, 111, 0.22);
 }
-
-.brand strong,
-.brand span {
-  display: block;
-}
-
-.brand strong {
-  color: #f5fffb;
-  font-size: 18px;
-}
-
-.brand span {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.nav {
-  border: 0;
-  background: transparent;
-}
-
+.brand strong, .brand span { display: block; }
+.brand strong { color: var(--ink); font-size: 18px; }
+.brand span { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.nav { border: 0; background: transparent; }
 .nav :deep(.el-menu-item) {
   height: 48px;
   margin: 4px 12px;
   border-radius: var(--radius);
-  color: #a7bea2;
-  font-weight: 700;
+  color: #45604b;
+  font-weight: 800;
 }
-
-.nav :deep(.el-menu-item.is-active),
-.nav :deep(.el-menu-item:hover) {
-  background:
-    linear-gradient(90deg, rgba(168, 211, 111, 0.18), rgba(154, 185, 151, 0.08));
-  color: #f7fffb;
+.nav :deep(.el-menu-item.is-active), .nav :deep(.el-menu-item:hover) {
+  background: rgba(83, 184, 106, 0.12);
+  color: var(--brand-strong);
   box-shadow: inset 3px 0 0 var(--brand);
 }
-
 .console__header {
   display: flex;
   height: 84px;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  background:
-    linear-gradient(90deg, rgba(10, 22, 15, 0.72), rgba(20, 42, 28, 0.5)),
-    rgba(6, 18, 12, 0.62);
-  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px);
 }
-
-.console__header p,
-.console__header h1 {
-  margin: 0;
-}
-
-.console__header p {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.console__header h1 {
-  margin-top: 4px;
-  color: #f4fffb;
-  font-size: 22px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-}
-
-.system-pill,
+.console__header p, .console__header h1 { margin: 0; }
+.console__header p { color: var(--muted); font-size: 13px; }
+.console__header h1 { margin-top: 4px; color: var(--ink); font-size: 22px; }
+.header-actions { display: flex; gap: 14px; align-items: center; }
 .operator {
   display: inline-flex;
   align-items: center;
+  cursor: pointer;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(154, 185, 151, 0.09);
-  color: #e4f5d8;
-}
-
-.system-pill {
-  gap: 6px;
-  padding: 8px 12px;
-  font-size: 13px;
-}
-
-.operator {
-  cursor: pointer;
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--ink);
   padding: 9px 14px;
   font-weight: 800;
 }
-
-.console__main {
-  padding: 24px;
-}
+.console__main { min-height: calc(100vh - 84px); padding: 24px; }
 </style>

@@ -44,44 +44,82 @@ public class DatabaseInitializer implements ApplicationRunner {
         populator.addScript(new ClassPathResource("db/kingbase/schema.sql"));
         populator.addScript(new ClassPathResource("db/kingbase/seed.sql"));
         populator.execute(dataSource);
-        cleanupCorruptedSeedData();
-        normalizeLegacyDeviceStatus();
-        normalizeDemoSeedText();
 
-        Integer exists = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM app_user WHERE username = ?",
-                Integer.class,
-                "admin"
+        migrateDefaultAdmin();
+        normalizeLegacyDeviceStatus();
+        cleanupDebugAndCorruptedDevices();
+        ensureDefaultAvatars();
+        ensureUserRoleMappings();
+    }
+
+    private void migrateDefaultAdmin() {
+        Integer admin1Exists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM app_user WHERE username = 'admin1' AND deleted = FALSE",
+                Integer.class
         );
-        if (exists != null && exists == 0) {
+        Integer legacyAdminExists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM app_user WHERE username = 'admin' AND deleted = FALSE",
+                Integer.class
+        );
+        if ((admin1Exists == null || admin1Exists == 0) && legacyAdminExists != null && legacyAdminExists > 0) {
             jdbcTemplate.update("""
-                    INSERT INTO app_user(username, password_hash, role_code, phone, email, display_name, gender, bio)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    UPDATE app_user
+                    SET username = 'admin1',
+                        display_name = NULL,
+                        bio = '平台管理员',
+                        allow_admin_delete = FALSE,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE username = 'admin' AND deleted = FALSE
+                    """);
+            log.info("Migrated default admin username from admin to admin1");
+            return;
+        }
+        if (admin1Exists == null || admin1Exists == 0) {
+            jdbcTemplate.update("""
+                    INSERT INTO app_user(username, password_hash, role_code, phone, email, display_name, gender, bio, allow_admin_delete, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    "admin",
+                    "admin1",
                     "{bcrypt}" + passwordEncoder.encode(adminPassword),
                     "ADMIN",
                     "13800000000",
-                    "admin@example.com",
-                    "System Admin",
+                    "admin1@example.com",
+                    null,
                     "UNKNOWN",
-                    "Platform super administrator"
+                    "平台管理员",
+                    false,
+                    "system"
             );
-            log.info("Admin account initialized: username=admin");
+            log.info("Admin account initialized: username=admin1");
         }
     }
 
-    private void cleanupCorruptedSeedData() {
-        String corruptedGreenhouseCondition = "name LIKE '%鑿%' OR name LIKE '%ç%' OR location LIKE '%娓%' OR crop_stage LIKE '%鍑%'";
-        jdbcTemplate.update("DELETE FROM greenhouse_alert WHERE title LIKE '%娉%' OR description LIKE '%杩%'");
-        jdbcTemplate.update("DELETE FROM greenhouse_device WHERE name LIKE '%椋%' OR category LIKE '%閫%' OR location LIKE '%涓%'");
-        jdbcTemplate.update("DELETE FROM telemetry_snapshot WHERE greenhouse_id IN (SELECT id FROM greenhouse WHERE " + corruptedGreenhouseCondition + ")");
-        jdbcTemplate.update("DELETE FROM traceability_record WHERE greenhouse_id IN (SELECT id FROM greenhouse WHERE " + corruptedGreenhouseCondition + ")");
-        jdbcTemplate.update("DELETE FROM greenhouse_alert WHERE greenhouse_id IN (SELECT id FROM greenhouse WHERE " + corruptedGreenhouseCondition + ")");
-        jdbcTemplate.update("DELETE FROM greenhouse_device WHERE greenhouse_id IN (SELECT id FROM greenhouse WHERE " + corruptedGreenhouseCondition + ")");
-        int removed = jdbcTemplate.update("DELETE FROM greenhouse WHERE " + corruptedGreenhouseCondition);
-        if (removed > 0) {
-            log.warn("Removed corrupted seed greenhouse rows: count={}", removed);
+    private void ensureUserRoleMappings() {
+        jdbcTemplate.update("""
+                INSERT INTO auth_user_role(user_id, role_id)
+                SELECT u.id, r.id
+                FROM app_user u, auth_role r
+                WHERE u.role_code = r.role_code
+                  AND u.deleted = FALSE
+                  AND NOT EXISTS (SELECT 1 FROM auth_user_role ur WHERE ur.user_id = u.id AND ur.role_id = r.id)
+                """);
+    }
+
+    private void ensureDefaultAvatars() {
+        int updated = jdbcTemplate.update("""
+                UPDATE app_user
+                SET avatar_url = CASE
+                    WHEN role_code = 'ADMIN' AND gender = 'FEMALE' THEN '/avatars/female_admin.png'
+                    WHEN role_code = 'ADMIN' THEN '/avatars/male_admin.png'
+                    WHEN role_code = 'FARMER' AND gender = 'FEMALE' THEN '/avatars/female_farmer.png'
+                    ELSE '/avatars/male_farmer.jpg'
+                END,
+                updated_at = CURRENT_TIMESTAMP
+                WHERE deleted = FALSE
+                  AND (avatar_url IS NULL OR TRIM(avatar_url) = '')
+                """);
+        if (updated > 0) {
+            log.info("Default user avatars assigned: count={}", updated);
         }
     }
 
@@ -100,34 +138,26 @@ public class DatabaseInitializer implements ApplicationRunner {
         }
     }
 
-    private void normalizeDemoSeedText() {
-        jdbcTemplate.update("""
-                UPDATE app_user
-                SET display_name = '示范农户',
-                    bio = '负责 A01 大棚日常巡检和出菇期管理',
-                    password_hash = ?
-                WHERE username = 'farmer001'
-                """, "{bcrypt}" + passwordEncoder.encode("123456"));
-        jdbcTemplate.update("""
-                UPDATE greenhouse
-                SET name = 'A01 羊肚菌智能大棚',
-                    location = '温室一区 / 北侧',
-                    crop_stage = '出菇期'
-                WHERE id = 1
-                """);
-        jdbcTemplate.update("""
+    private void cleanupDebugAndCorruptedDevices() {
+        int removed = jdbcTemplate.update("""
                 UPDATE greenhouse_device
-                SET name = '循环风机组',
-                    category = '通风',
-                    location = '东侧风道'
-                WHERE id = 1
+                SET deleted = TRUE,
+                    deleted_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP,
+                    deleted_by = 'system-cleanup'
+                WHERE deleted = FALSE
+                  AND (
+                    name LIKE '%?%'
+                    OR category LIKE '%?%'
+                    OR location LIKE '%?%'
+                    OR remark LIKE '%?%'
+                    OR LOWER(name) LIKE 'farmer-device-%'
+                    OR LOWER(name) LIKE 'admin-block-test%'
+                    OR LOWER(category) IN ('test', 'debug', 'demo')
+                  )
                 """);
-        jdbcTemplate.update("""
-                UPDATE greenhouse_alert
-                SET title = '湿度波动偏高',
-                    description = '连续 8 分钟超过目标上限 3.5%，请检查加湿策略和通风设备。',
-                    level = 'WARNING'
-                WHERE id = 1
-                """);
+        if (removed > 0) {
+            log.warn("Cleaned debug or corrupted device rows: count={}", removed);
+        }
     }
 }

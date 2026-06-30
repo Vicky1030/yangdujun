@@ -1,26 +1,340 @@
-INSERT INTO app_user(username, password_hash, role_code, phone, email, display_name, gender, bio)
-SELECT 'farmer001', '{bcrypt}$2a$10$JkchLJY4LoYghNpK4kJ5Ae2TQwAotSKfih8CV0McdCrw.7HfMS1MC', 'FARMER', '13900000001', 'farmer001@example.com', '示范农户', 'MALE', '负责 A01 大棚日常巡检和出菇期管理'
-WHERE NOT EXISTS (SELECT 1 FROM app_user WHERE username='farmer001');
+INSERT INTO sys_dict_type(type_code, type_name, description, sort_order)
+SELECT 'GREENHOUSE_STATUS', '大棚状态', '大棚运行状态字典', 10
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE type_code = 'GREENHOUSE_STATUS');
 
-INSERT INTO greenhouse(owner_user_id, name, location, status, area, crop_stage)
-SELECT u.id, 'A01 羊肚菌智能大棚', '温室一区 / 北侧', 'ONLINE', 420.00, '出菇期'
-FROM app_user u WHERE u.username='farmer001'
-AND NOT EXISTS (SELECT 1 FROM greenhouse WHERE name='A01 羊肚菌智能大棚');
+INSERT INTO sys_dict_type(type_code, type_name, description, sort_order)
+SELECT 'DEVICE_STATUS', '设备状态', '设备运行状态字典', 20
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE type_code = 'DEVICE_STATUS');
 
-INSERT INTO greenhouse_device(greenhouse_id, name, category, status, location, auto_mode, health_score)
-SELECT g.id, '循环风机组', '通风', 'RUNNING', '东侧风道', TRUE, 96 FROM greenhouse g WHERE g.name='A01 羊肚菌智能大棚'
-AND NOT EXISTS (SELECT 1 FROM greenhouse_device WHERE name='循环风机组');
+INSERT INTO sys_dict_type(type_code, type_name, description, sort_order)
+SELECT 'ALERT_LEVEL', '告警级别', '告警严重程度字典', 30
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE type_code = 'ALERT_LEVEL');
+
+INSERT INTO sys_dict_type(type_code, type_name, description, sort_order)
+SELECT 'ALERT_STATUS', '告警状态', '告警闭环处理状态字典', 40
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE type_code = 'ALERT_STATUS');
+
+UPDATE sys_dict_type SET type_name = '大棚状态', description = '大棚运行状态字典' WHERE type_code = 'GREENHOUSE_STATUS';
+UPDATE sys_dict_type SET type_name = '设备状态', description = '设备运行状态字典' WHERE type_code = 'DEVICE_STATUS';
+UPDATE sys_dict_type SET type_name = '告警级别', description = '告警严重程度字典' WHERE type_code = 'ALERT_LEVEL';
+UPDATE sys_dict_type SET type_name = '告警状态', description = '告警闭环处理状态字典' WHERE type_code = 'ALERT_STATUS';
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'GREENHOUSE_STATUS', 'ONLINE', '在线', 'ONLINE', 'success', 1
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'GREENHOUSE_STATUS' AND item_code = 'ONLINE');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'GREENHOUSE_STATUS', 'WARNING', '预警', 'WARNING', 'warning', 2
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'GREENHOUSE_STATUS' AND item_code = 'WARNING');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'GREENHOUSE_STATUS', 'OFFLINE', '离线', 'OFFLINE', 'info', 3
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'GREENHOUSE_STATUS' AND item_code = 'OFFLINE');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'DEVICE_STATUS', 'RUNNING', '运行中', 'RUNNING', 'success', 1
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'DEVICE_STATUS' AND item_code = 'RUNNING');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'DEVICE_STATUS', 'STOPPED', '已停止', 'STOPPED', 'info', 2
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'DEVICE_STATUS' AND item_code = 'STOPPED');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'DEVICE_STATUS', 'MAINTENANCE', '维护中', 'MAINTENANCE', 'warning', 3
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'DEVICE_STATUS' AND item_code = 'MAINTENANCE');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'ALERT_LEVEL', 'INFO', '提示', 'INFO', 'info', 1
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'ALERT_LEVEL' AND item_code = 'INFO');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'ALERT_LEVEL', 'WARNING', '警告', 'WARNING', 'warning', 2
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'ALERT_LEVEL' AND item_code = 'WARNING');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'ALERT_LEVEL', 'CRITICAL', '严重', 'CRITICAL', 'danger', 3
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'ALERT_LEVEL' AND item_code = 'CRITICAL');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'ALERT_STATUS', 'OPEN', '待处理', 'OPEN', 'danger', 1
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'ALERT_STATUS' AND item_code = 'OPEN');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'ALERT_STATUS', 'ACKNOWLEDGED', '已确认', 'ACKNOWLEDGED', 'warning', 2
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'ALERT_STATUS' AND item_code = 'ACKNOWLEDGED');
+
+INSERT INTO sys_dict_item(type_code, item_code, item_name, item_value, tag_type, sort_order)
+SELECT 'ALERT_STATUS', 'RESOLVED', '已解决', 'RESOLVED', 'success', 3
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_item WHERE type_code = 'ALERT_STATUS' AND item_code = 'RESOLVED');
+
+UPDATE sys_dict_item SET item_name = '在线' WHERE type_code = 'GREENHOUSE_STATUS' AND item_code = 'ONLINE';
+UPDATE sys_dict_item SET item_name = '预警' WHERE type_code = 'GREENHOUSE_STATUS' AND item_code = 'WARNING';
+UPDATE sys_dict_item SET item_name = '离线' WHERE type_code = 'GREENHOUSE_STATUS' AND item_code = 'OFFLINE';
+UPDATE sys_dict_item SET item_name = '运行中' WHERE type_code = 'DEVICE_STATUS' AND item_code = 'RUNNING';
+UPDATE sys_dict_item SET item_name = '已停止' WHERE type_code = 'DEVICE_STATUS' AND item_code = 'STOPPED';
+UPDATE sys_dict_item SET item_name = '维护中' WHERE type_code = 'DEVICE_STATUS' AND item_code = 'MAINTENANCE';
+UPDATE sys_dict_item SET item_name = '提示' WHERE type_code = 'ALERT_LEVEL' AND item_code = 'INFO';
+UPDATE sys_dict_item SET item_name = '警告' WHERE type_code = 'ALERT_LEVEL' AND item_code = 'WARNING';
+UPDATE sys_dict_item SET item_name = '严重' WHERE type_code = 'ALERT_LEVEL' AND item_code = 'CRITICAL';
+UPDATE sys_dict_item SET item_name = '待处理' WHERE type_code = 'ALERT_STATUS' AND item_code = 'OPEN';
+UPDATE sys_dict_item SET item_name = '已确认' WHERE type_code = 'ALERT_STATUS' AND item_code = 'ACKNOWLEDGED';
+UPDATE sys_dict_item SET item_name = '已解决' WHERE type_code = 'ALERT_STATUS' AND item_code = 'RESOLVED';
+
+INSERT INTO auth_role(role_code, role_name, description, data_scope)
+SELECT 'ADMIN', '系统管理员', '拥有用户、大棚、设备、告警和反馈管理权限', 'ALL'
+WHERE NOT EXISTS (SELECT 1 FROM auth_role WHERE role_code = 'ADMIN');
+
+INSERT INTO auth_role(role_code, role_name, description, data_scope)
+SELECT 'FARMER', '农户', '查看本人绑定大棚、设备、告警和反馈消息', 'SELF'
+WHERE NOT EXISTS (SELECT 1 FROM auth_role WHERE role_code = 'FARMER');
+
+UPDATE auth_role SET role_name = '系统管理员', description = '拥有用户、大棚、设备、告警和反馈管理权限', data_scope = 'ALL' WHERE role_code = 'ADMIN';
+UPDATE auth_role SET role_name = '农户', description = '查看本人绑定大棚、设备、告警和反馈消息', data_scope = 'SELF' WHERE role_code = 'FARMER';
+
+INSERT INTO auth_permission(permission_code, permission_name, resource_type, resource_path, http_method, sort_order)
+SELECT 'greenhouse:manage', '大棚管理', 'API', '/api/v1/greenhouses/**', '*', 10
+WHERE NOT EXISTS (SELECT 1 FROM auth_permission WHERE permission_code = 'greenhouse:manage');
+
+INSERT INTO auth_permission(permission_code, permission_name, resource_type, resource_path, http_method, sort_order)
+SELECT 'device:manage', '设备管理', 'API', '/api/v1/greenhouses/devices/**', '*', 20
+WHERE NOT EXISTS (SELECT 1 FROM auth_permission WHERE permission_code = 'device:manage');
+
+INSERT INTO auth_permission(permission_code, permission_name, resource_type, resource_path, http_method, sort_order)
+SELECT 'alert:handle', '告警处理', 'API', '/api/v1/greenhouses/alerts/**', '*', 30
+WHERE NOT EXISTS (SELECT 1 FROM auth_permission WHERE permission_code = 'alert:handle');
+
+INSERT INTO auth_permission(permission_code, permission_name, resource_type, resource_path, http_method, sort_order)
+SELECT 'farmer:workbench', '农户工作台', 'MENU', '/farmer', 'GET', 50
+WHERE NOT EXISTS (SELECT 1 FROM auth_permission WHERE permission_code = 'farmer:workbench');
+
+INSERT INTO auth_role_permission(role_id, permission_id)
+SELECT r.id, p.id FROM auth_role r, auth_permission p
+WHERE r.role_code = 'ADMIN'
+  AND p.permission_code IN ('greenhouse:manage', 'device:manage', 'alert:handle', 'farmer:workbench')
+  AND NOT EXISTS (SELECT 1 FROM auth_role_permission rp WHERE rp.role_id = r.id AND rp.permission_id = p.id);
+
+INSERT INTO auth_role_permission(role_id, permission_id)
+SELECT r.id, p.id FROM auth_role r, auth_permission p
+WHERE r.role_code = 'FARMER'
+  AND p.permission_code IN ('farmer:workbench')
+  AND NOT EXISTS (SELECT 1 FROM auth_role_permission rp WHERE rp.role_id = r.id AND rp.permission_id = p.id);
+
+INSERT INTO device_type(type_code, type_name, category, protocol, unit, telemetry_key, command_capable, description)
+SELECT 'VENTILATION_FAN', '循环风机组', '通风', 'MODBUS', NULL, 'wind', TRUE, '用于棚内通风换气与空气循环'
+WHERE NOT EXISTS (SELECT 1 FROM device_type WHERE type_code = 'VENTILATION_FAN');
+
+INSERT INTO device_type(type_code, type_name, category, protocol, unit, telemetry_key, command_capable, description)
+SELECT 'HUMIDIFIER', '雾化加湿器', '加湿', 'MODBUS', '%', 'humidity', TRUE, '用于维持羊肚菌生长湿度'
+WHERE NOT EXISTS (SELECT 1 FROM device_type WHERE type_code = 'HUMIDIFIER');
+
+INSERT INTO device_type(type_code, type_name, category, protocol, unit, telemetry_key, command_capable, description)
+SELECT 'CO2_SENSOR', 'CO2 传感器', '环境传感器', 'MODBUS', 'ppm', 'co2_ppm', FALSE, '采集棚内 CO2 浓度'
+WHERE NOT EXISTS (SELECT 1 FROM device_type WHERE type_code = 'CO2_SENSOR');
+
+INSERT INTO device_type(type_code, type_name, category, protocol, unit, telemetry_key, command_capable, description)
+SELECT 'IRRIGATION_PUMP', '灌溉水泵', '灌溉', 'MODBUS', NULL, 'soil_moisture', TRUE, '用于土壤和基质补水'
+WHERE NOT EXISTS (SELECT 1 FROM device_type WHERE type_code = 'IRRIGATION_PUMP');
+
+UPDATE device_type SET type_name = '循环风机组', category = '通风', description = '用于棚内通风换气与空气循环' WHERE type_code = 'VENTILATION_FAN';
+UPDATE device_type SET type_name = '雾化加湿器', category = '加湿', description = '用于维持羊肚菌生长湿度' WHERE type_code = 'HUMIDIFIER';
+UPDATE device_type SET type_name = 'CO2 传感器', category = '环境传感器', description = '采集棚内 CO2 浓度' WHERE type_code = 'CO2_SENSOR';
+UPDATE device_type SET type_name = '灌溉水泵', category = '灌溉', description = '用于土壤和基质补水' WHERE type_code = 'IRRIGATION_PUMP';
+
+INSERT INTO alert_rule(rule_code, rule_name, metric_key, operator, threshold_value, duration_minutes, level, description)
+SELECT 'HUMIDITY_HIGH_A01', '湿度持续偏高', 'humidity', 'GT', 88.00, 8, 'WARNING', '连续多分钟超过湿度上限时触发'
+WHERE NOT EXISTS (SELECT 1 FROM alert_rule WHERE rule_code = 'HUMIDITY_HIGH_A01');
+
+INSERT INTO alert_rule(rule_code, rule_name, metric_key, operator, threshold_value, duration_minutes, level, description)
+SELECT 'CO2_HIGH_A01', 'CO2 浓度偏高', 'co2_ppm', 'GT', 1200.00, 5, 'CRITICAL', 'CO2 浓度过高时提醒通风'
+WHERE NOT EXISTS (SELECT 1 FROM alert_rule WHERE rule_code = 'CO2_HIGH_A01');
+
+UPDATE alert_rule SET rule_name = '湿度持续偏高', description = '连续多分钟超过湿度上限时触发' WHERE rule_code = 'HUMIDITY_HIGH_A01';
+UPDATE alert_rule SET rule_name = 'CO2 浓度偏高', description = 'CO2 浓度过高时提醒通风' WHERE rule_code = 'CO2_HIGH_A01';
+
+INSERT INTO app_user(username, password_hash, role_code, phone, email, display_name, gender, bio, created_by)
+SELECT 'farmer001', '{bcrypt}$2a$10$JkchLJY4LoYghNpK4kJ5Ae2TQwAotSKfih8CV0McdCrw.7HfMS1MC', 'FARMER', '13900000001', 'farmer001@example.com', '示范农户', 'MALE', '负责 A01 大棚日常巡检和出菇期管理', 'system'
+WHERE NOT EXISTS (SELECT 1 FROM app_user WHERE username = 'farmer001');
+
+UPDATE app_user SET display_name = '示范农户', bio = '负责 A01 大棚日常巡检和出菇期管理' WHERE username = 'farmer001';
+
+INSERT INTO auth_user_role(user_id, role_id)
+SELECT u.id, r.id FROM app_user u, auth_role r
+WHERE u.username = 'farmer001' AND r.role_code = 'FARMER'
+  AND NOT EXISTS (SELECT 1 FROM auth_user_role ur WHERE ur.user_id = u.id AND ur.role_id = r.id);
+
+UPDATE greenhouse SET name = 'A01 羊肚菌智能大棚', location = '温室一区 / 北侧', crop_stage = '出菇期'
+WHERE owner_user_id = (SELECT id FROM app_user WHERE username = 'farmer001' LIMIT 1)
+  AND name LIKE 'A01 %';
+
+INSERT INTO greenhouse(owner_user_id, name, location, status, area, crop_stage, created_by)
+SELECT u.id, 'A01 羊肚菌智能大棚', '温室一区 / 北侧', 'ONLINE', 420.00, '出菇期', 'system'
+FROM app_user u WHERE u.username = 'farmer001'
+AND NOT EXISTS (SELECT 1 FROM greenhouse WHERE name = 'A01 羊肚菌智能大棚' AND deleted = FALSE);
+
+INSERT INTO farmer_greenhouse_binding(farmer_user_id, greenhouse_id)
+SELECT u.id, g.id FROM app_user u, greenhouse g
+WHERE u.username = 'farmer001' AND g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
+  AND NOT EXISTS (SELECT 1 FROM farmer_greenhouse_binding b WHERE b.greenhouse_id = g.id AND b.deleted = FALSE);
+
+INSERT INTO greenhouse_device(greenhouse_id, device_type_id, name, category, status, location, manufacturer, model, protocol, auto_mode, health_score, created_by)
+SELECT g.id, dt.id, '循环风机组', dt.category, 'RUNNING', '东侧风道', 'Kingbase IoT Lab', 'FAN-MR-2026', dt.protocol, TRUE, 96, 'system'
+FROM greenhouse g
+JOIN device_type dt ON dt.type_code = 'VENTILATION_FAN'
+WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
+AND NOT EXISTS (SELECT 1 FROM greenhouse_device WHERE name = '循环风机组' AND greenhouse_id = g.id AND deleted = FALSE);
 
 INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, light_lux, co2_ppm, soil_moisture)
-SELECT g.id, 21.8, 84.6, 4280, 790, 62.5 FROM greenhouse g WHERE g.name='A01 羊肚菌智能大棚';
+SELECT g.id, 21.8, 84.6, 4280, 790, 62.5 FROM greenhouse g
+WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
+  AND NOT EXISTS (
+    SELECT 1 FROM telemetry_snapshot ts
+    WHERE ts.greenhouse_id = g.id AND ts.temperature = 21.8 AND ts.humidity = 84.6
+  );
 
-INSERT INTO greenhouse_alert(greenhouse_id, device_id, title, description, level, status)
-SELECT g.id, d.id, '湿度波动偏高', '连续 8 分钟超过目标上限 3.5%，请检查加湿策略和通风设备。', 'WARNING', 'OPEN'
+INSERT INTO greenhouse_alert(greenhouse_id, device_id, rule_id, title, description, level, status, created_by)
+SELECT g.id, d.id, r.id, '湿度波动偏高', '连续 8 分钟超过目标上限 3.5%，请检查加湿策略和通风设备。', 'WARNING', 'OPEN', 'system'
 FROM greenhouse g
-LEFT JOIN greenhouse_device d ON d.greenhouse_id = g.id AND d.name='循环风机组'
-WHERE g.name='A01 羊肚菌智能大棚'
-AND NOT EXISTS (SELECT 1 FROM greenhouse_alert WHERE title='湿度波动偏高');
+LEFT JOIN greenhouse_device d ON d.greenhouse_id = g.id AND d.name = '循环风机组' AND d.deleted = FALSE
+LEFT JOIN alert_rule r ON r.rule_code = 'HUMIDITY_HIGH_A01'
+WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
+AND NOT EXISTS (SELECT 1 FROM greenhouse_alert WHERE title = '湿度波动偏高' AND greenhouse_id = g.id AND deleted = FALSE);
 
-INSERT INTO traceability_record(greenhouse_id, batch_no, operation, operator, operation_date, note)
-SELECT g.id, 'ML-202606-A01', '基质入棚', '张工', CURRENT_DATE - 28, '完成批次建档并绑定溯源码' FROM greenhouse g WHERE g.name='A01 羊肚菌智能大棚'
-AND NOT EXISTS (SELECT 1 FROM traceability_record WHERE batch_no='ML-202606-A01' AND operation='基质入棚');
+INSERT INTO traceability_record(greenhouse_id, batch_no, operation, operator, operation_date, note, created_by)
+SELECT g.id, 'ML-202606-A01', '基质入棚', '张工', CURRENT_DATE - 28, '完成批次建档并绑定溯源码', 'system'
+FROM greenhouse g WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
+AND NOT EXISTS (SELECT 1 FROM traceability_record WHERE batch_no = 'ML-202606-A01' AND operation = '基质入棚' AND deleted = FALSE);
+
+INSERT INTO production_batch(greenhouse_id, batch_no, batch_name, crop_name, status, started_at, expected_harvest_at, summary)
+SELECT g.id, 'ML-202606-A01', 'A01 春季羊肚菌示范批次', '羊肚菌', 'RUNNING', CURRENT_DATE - 28, CURRENT_DATE + 12, '菌丝恢复稳定，进入出菇期环境精细调控。'
+FROM greenhouse g
+WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
+  AND NOT EXISTS (SELECT 1 FROM production_batch WHERE batch_no = 'ML-202606-A01')
+LIMIT 1;
+
+INSERT INTO production_batch_event(batch_id, event_code, event_title, event_status, operator, event_time, description, block_hash, previous_hash, sort_order)
+SELECT b.id, 'SUBSTRATE_IN', '基质入棚', 'DONE', '张工', CURRENT_TIMESTAMP - INTERVAL '28 days', '完成培养基入棚、消毒记录和批次建档。', 'BATCH-A01-001', NULL, 10
+FROM production_batch b WHERE b.batch_no = 'ML-202606-A01'
+AND NOT EXISTS (SELECT 1 FROM production_batch_event WHERE batch_id = b.id AND event_code = 'SUBSTRATE_IN');
+
+INSERT INTO production_batch_event(batch_id, event_code, event_title, event_status, operator, event_time, description, block_hash, previous_hash, sort_order)
+SELECT b.id, 'MYCELIUM_RECOVERY', '菌丝恢复', 'DONE', '李工', CURRENT_TIMESTAMP - INTERVAL '14 days', '湿度目标上调至 86%，菌丝恢复状态良好。', 'BATCH-A01-002', 'BATCH-A01-001', 20
+FROM production_batch b WHERE b.batch_no = 'ML-202606-A01'
+AND NOT EXISTS (SELECT 1 FROM production_batch_event WHERE batch_id = b.id AND event_code = 'MYCELIUM_RECOVERY');
+
+INSERT INTO production_batch_event(batch_id, event_code, event_title, event_status, operator, event_time, description, block_hash, previous_hash, sort_order)
+SELECT b.id, 'FRUITING_CONTROL', '出菇期调控', 'RUNNING', '管理员', CURRENT_TIMESTAMP - INTERVAL '2 days', '温度、湿度、CO2 浓度进入连续监测与告警闭环。', 'BATCH-A01-003', 'BATCH-A01-002', 30
+FROM production_batch b WHERE b.batch_no = 'ML-202606-A01'
+AND NOT EXISTS (SELECT 1 FROM production_batch_event WHERE batch_id = b.id AND event_code = 'FRUITING_CONTROL');
+
+INSERT INTO greenhouse(owner_user_id, name, location, status, area, crop_stage, created_by)
+SELECT u.id, 'A02 羊肚菌育菇大棚', '温室二区 / 东侧', 'WARNING', 360.00, '菌丝恢复期', 'system'
+FROM app_user u WHERE u.username = 'farmer001'
+AND NOT EXISTS (SELECT 1 FROM greenhouse WHERE name = 'A02 羊肚菌育菇大棚' AND deleted = FALSE);
+
+INSERT INTO greenhouse(owner_user_id, name, location, status, area, crop_stage, created_by)
+SELECT u.id, 'A03 羊肚菌试验大棚', '温室二区 / 西侧', 'ONLINE', 300.00, '催菇期', 'system'
+FROM app_user u WHERE u.username = 'farmer001'
+AND NOT EXISTS (SELECT 1 FROM greenhouse WHERE name = 'A03 羊肚菌试验大棚' AND deleted = FALSE);
+
+INSERT INTO farmer_greenhouse_binding(farmer_user_id, greenhouse_id)
+SELECT u.id, g.id FROM app_user u, greenhouse g
+WHERE u.username = 'farmer001' AND g.name IN ('A02 羊肚菌育菇大棚', 'A03 羊肚菌试验大棚') AND g.deleted = FALSE
+  AND NOT EXISTS (SELECT 1 FROM farmer_greenhouse_binding b WHERE b.greenhouse_id = g.id AND b.deleted = FALSE);
+
+INSERT INTO greenhouse_device(greenhouse_id, device_type_id, name, category, status, location, remark, manufacturer, model, protocol, auto_mode, health_score, created_by)
+SELECT g.id, dt.id, '雾化加湿器', dt.category, 'RUNNING', '北侧雾化带', '根据湿度阈值自动补湿', 'Kingbase IoT Lab', 'HMD-MR-2026', dt.protocol, TRUE, 92, 'system'
+FROM greenhouse g JOIN device_type dt ON dt.type_code = 'HUMIDIFIER'
+WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
+AND NOT EXISTS (SELECT 1 FROM greenhouse_device WHERE name = '雾化加湿器' AND greenhouse_id = g.id AND deleted = FALSE);
+
+INSERT INTO greenhouse_device(greenhouse_id, device_type_id, name, category, status, location, remark, manufacturer, model, protocol, auto_mode, health_score, created_by)
+SELECT g.id, dt.id, 'CO2 传感器', dt.category, 'RUNNING', '棚内中部', '每 5 分钟采集一次 CO2 浓度', 'Kingbase IoT Lab', 'CO2-MR-2026', dt.protocol, TRUE, 98, 'system'
+FROM greenhouse g JOIN device_type dt ON dt.type_code = 'CO2_SENSOR'
+WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
+AND NOT EXISTS (SELECT 1 FROM greenhouse_device WHERE name = 'CO2 传感器' AND greenhouse_id = g.id AND deleted = FALSE);
+
+INSERT INTO greenhouse_device(greenhouse_id, device_type_id, name, category, status, location, remark, manufacturer, model, protocol, auto_mode, health_score, created_by)
+SELECT g.id, dt.id, '灌溉水泵', dt.category, 'MAINTENANCE', '西侧管线井', '昨日巡检发现压力波动，待复核', 'Kingbase IoT Lab', 'PUMP-MR-2026', dt.protocol, FALSE, 58, 'system'
+FROM greenhouse g JOIN device_type dt ON dt.type_code = 'IRRIGATION_PUMP'
+WHERE g.name = 'A02 羊肚菌育菇大棚' AND g.deleted = FALSE
+AND NOT EXISTS (SELECT 1 FROM greenhouse_device WHERE name = '灌溉水泵' AND greenhouse_id = g.id AND deleted = FALSE);
+
+INSERT INTO greenhouse_device(greenhouse_id, device_type_id, name, category, status, location, remark, manufacturer, model, protocol, auto_mode, health_score, created_by)
+SELECT g.id, dt.id, 'A03 循环风机', dt.category, 'STOPPED', '南侧风道', '催菇期低速通风备用', 'Kingbase IoT Lab', 'FAN-MR-2026', dt.protocol, TRUE, 87, 'system'
+FROM greenhouse g JOIN device_type dt ON dt.type_code = 'VENTILATION_FAN'
+WHERE g.name = 'A03 羊肚菌试验大棚' AND g.deleted = FALSE
+AND NOT EXISTS (SELECT 1 FROM greenhouse_device WHERE name = 'A03 循环风机' AND greenhouse_id = g.id AND deleted = FALSE);
+
+INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, light_lux, co2_ppm, soil_moisture, collected_at)
+SELECT g.id, v.temperature, v.humidity, v.light_lux, v.co2_ppm, v.soil_moisture, CURRENT_TIMESTAMP - (v.hour_offset || ' hours')::INTERVAL
+FROM greenhouse g
+JOIN (
+  SELECT 1 AS hour_offset, 21.5 AS temperature, 84.0 AS humidity, 4200 AS light_lux, 760 AS co2_ppm, 61.5 AS soil_moisture
+  UNION ALL SELECT 2, 21.1, 85.2, 4100, 790, 62.0
+  UNION ALL SELECT 3, 20.8, 86.4, 3950, 830, 62.7
+  UNION ALL SELECT 4, 20.4, 87.1, 3800, 870, 63.2
+  UNION ALL SELECT 5, 20.0, 86.8, 3600, 910, 63.5
+  UNION ALL SELECT 6, 19.8, 85.9, 3400, 880, 63.1
+) v ON TRUE
+WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
+  AND NOT EXISTS (SELECT 1 FROM telemetry_snapshot ts WHERE ts.greenhouse_id = g.id AND ts.collected_at > CURRENT_TIMESTAMP - INTERVAL '7 hours');
+
+INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, light_lux, co2_ppm, soil_moisture)
+SELECT g.id, 18.9, 91.2, 3100, 1180, 67.4 FROM greenhouse g
+WHERE g.name = 'A02 羊肚菌育菇大棚' AND g.deleted = FALSE
+  AND NOT EXISTS (SELECT 1 FROM telemetry_snapshot ts WHERE ts.greenhouse_id = g.id AND ts.temperature = 18.9);
+
+INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, light_lux, co2_ppm, soil_moisture)
+SELECT g.id, 22.4, 78.6, 4450, 690, 59.8 FROM greenhouse g
+WHERE g.name = 'A03 羊肚菌试验大棚' AND g.deleted = FALSE
+  AND NOT EXISTS (SELECT 1 FROM telemetry_snapshot ts WHERE ts.greenhouse_id = g.id AND ts.temperature = 22.4);
+
+INSERT INTO greenhouse_alert(greenhouse_id, device_id, rule_id, title, description, level, status, created_by)
+SELECT g.id, d.id, r.id, 'CO2 浓度接近上限', 'A02 大棚 CO2 浓度持续升高，建议检查通风策略。', 'CRITICAL', 'OPEN', 'system'
+FROM greenhouse g
+LEFT JOIN greenhouse_device d ON d.greenhouse_id = g.id AND d.deleted = FALSE
+LEFT JOIN alert_rule r ON r.rule_code = 'CO2_HIGH_A01'
+WHERE g.name = 'A02 羊肚菌育菇大棚' AND g.deleted = FALSE
+AND NOT EXISTS (SELECT 1 FROM greenhouse_alert WHERE title = 'CO2 浓度接近上限' AND greenhouse_id = g.id AND deleted = FALSE);
+
+INSERT INTO greenhouse_alert(greenhouse_id, device_id, rule_id, title, description, level, status, handled_by, handle_note, handled_at, created_by)
+SELECT g.id, d.id, r.id, '水泵压力波动', '灌溉水泵压力波动，已安排复核。', 'WARNING', 'ACKNOWLEDGED', 'admin1', '已通知农户观察土壤水分变化。', CURRENT_TIMESTAMP - INTERVAL '1 hour', 'system'
+FROM greenhouse g
+LEFT JOIN greenhouse_device d ON d.greenhouse_id = g.id AND d.name = '灌溉水泵' AND d.deleted = FALSE
+LEFT JOIN alert_rule r ON r.rule_code = 'HUMIDITY_HIGH_A01'
+WHERE g.name = 'A02 羊肚菌育菇大棚' AND g.deleted = FALSE
+AND NOT EXISTS (SELECT 1 FROM greenhouse_alert WHERE title = '水泵压力波动' AND greenhouse_id = g.id AND deleted = FALSE);
+
+INSERT INTO production_batch(greenhouse_id, batch_no, batch_name, crop_name, status, started_at, expected_harvest_at, summary)
+SELECT g.id, 'ML-202606-A02', 'A02 菌丝恢复批次', '羊肚菌', 'RUNNING', CURRENT_DATE - 16, CURRENT_DATE + 22, '菌丝恢复期湿度偏高，重点关注通风和水分控制。'
+FROM greenhouse g
+WHERE g.name = 'A02 羊肚菌育菇大棚' AND g.deleted = FALSE
+  AND NOT EXISTS (SELECT 1 FROM production_batch WHERE batch_no = 'ML-202606-A02')
+LIMIT 1;
+
+INSERT INTO production_batch(greenhouse_id, batch_no, batch_name, crop_name, status, started_at, expected_harvest_at, summary)
+SELECT g.id, 'ML-202606-A03', 'A03 催菇试验批次', '羊肚菌', 'RUNNING', CURRENT_DATE - 8, CURRENT_DATE + 30, '催菇参数试验中，重点观察温差和光照变化。'
+FROM greenhouse g
+WHERE g.name = 'A03 羊肚菌试验大棚' AND g.deleted = FALSE
+  AND NOT EXISTS (SELECT 1 FROM production_batch WHERE batch_no = 'ML-202606-A03')
+LIMIT 1;
+
+INSERT INTO feedback_conversation(farmer_user_id, admin_user_id, last_message, last_message_at)
+SELECT f.id, a.id, 'A02 大棚 CO2 偏高，请协助查看通风策略。', CURRENT_TIMESTAMP - INTERVAL '30 minutes'
+FROM app_user f, app_user a
+WHERE f.username = 'farmer001' AND a.username = 'admin1'
+  AND NOT EXISTS (
+    SELECT 1 FROM feedback_conversation c
+    WHERE c.farmer_user_id = f.id AND c.admin_user_id = a.id AND c.deleted = FALSE
+  );
+
+INSERT INTO feedback_message(conversation_id, sender_user_id, receiver_user_id, content, message_type)
+SELECT c.id, c.farmer_user_id, c.admin_user_id, 'A02 大棚 CO2 偏高，请协助查看通风策略。', 'TEXT'
+FROM feedback_conversation c
+JOIN app_user f ON f.id = c.farmer_user_id
+JOIN app_user a ON a.id = c.admin_user_id
+WHERE f.username = 'farmer001' AND a.username = 'admin1'
+  AND NOT EXISTS (
+    SELECT 1 FROM feedback_message m
+    WHERE m.conversation_id = c.id AND m.content = 'A02 大棚 CO2 偏高，请协助查看通风策略。'
+  );

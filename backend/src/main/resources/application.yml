@@ -45,10 +45,17 @@ greenhouse:
     gateway-enabled: false
     mqtt-topic-prefix: morel/greenhouse
   security:
-    admin-username: admin
+    admin-username: admin1
     admin-default-password: ${GREENHOUSE_ADMIN_PASSWORD:admin123}
   verification:
     email-from: ${MAIL_FROM:}
+    code-ttl-minutes: ${VERIFICATION_CODE_TTL_MINUTES:5}
+    min-send-interval-seconds: ${VERIFICATION_MIN_SEND_INTERVAL_SECONDS:60}
+    max-send-per-hour: ${VERIFICATION_MAX_SEND_PER_HOUR:5}
+    max-ip-send-per-hour: ${VERIFICATION_MAX_IP_SEND_PER_HOUR:20}
+    cleanup-retention-hours: ${VERIFICATION_CLEANUP_RETENTION_HOURS:24}
+    mail-max-retry: ${VERIFICATION_MAIL_MAX_RETRY:2}
+    mail-retry-backoff-ms: ${VERIFICATION_MAIL_RETRY_BACKOFF_MS:800}
 
 logging:
   level:

@@ -1,9 +1,14 @@
 package com.morel.greenhouse.application.service;
 
+import com.morel.greenhouse.application.dto.BindGreenhousesRequest;
+import com.morel.greenhouse.application.dto.FeedbackMessageRequest;
 import com.morel.greenhouse.application.dto.FeedbackRequest;
 import com.morel.greenhouse.application.dto.ProfileUpdateRequest;
+import com.morel.greenhouse.application.dto.SaveUserRequest;
 import com.morel.greenhouse.shared.exception.BusinessException;
+import com.morel.greenhouse.shared.security.CurrentUser;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,39 +19,179 @@ import java.util.Map;
 @Service
 public class UserAccountService {
     private final JdbcTemplate jdbcTemplate;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserAccountService(JdbcTemplate jdbcTemplate) {
+    public UserAccountService(JdbcTemplate jdbcTemplate, PasswordEncoder passwordEncoder) {
         this.jdbcTemplate = jdbcTemplate;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public Map<String, Object> profile(Long userId) {
         return jdbcTemplate.queryForList("""
-                SELECT id, username, role_code, phone, email, display_name, avatar_url, gender, bio, last_login_ip
-                FROM app_user WHERE id = ?
+                SELECT id, username, role_code, phone, email, display_name, avatar_url, gender, bio, allow_admin_delete, last_login_ip
+                FROM app_user
+                WHERE id = ? AND deleted = FALSE
                 """, userId).stream().findFirst().orElseThrow(() -> new BusinessException(404, "用户不存在"));
     }
 
     @Transactional
     public Map<String, Object> updateProfile(Long userId, ProfileUpdateRequest request) {
         Map<String, Object> current = profile(userId);
-        String nextUsername = blankToDefault(request.username(), String.valueOf(current.get("username")));
-        if ("admin".equalsIgnoreCase(nextUsername) && !"admin".equalsIgnoreCase(String.valueOf(current.get("username")))) {
-            throw new BusinessException(400, "普通用户不能修改用户名为 admin");
-        }
+        String role = stringValue(current.get("role_code"));
+        String nextUsername = blankToDefault(request.username(), stringValue(current.get("username"))).trim();
+        validateUsername(nextUsername, role, userId);
         jdbcTemplate.update("""
-                UPDATE app_user SET username = ?, phone = ?, email = ?, display_name = ?, avatar_url = ?, gender = ?, bio = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+                UPDATE app_user
+                SET username = ?, phone = ?, email = ?, display_name = ?, avatar_url = ?, gender = ?, bio = ?,
+                    allow_admin_delete = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND deleted = FALSE
                 """,
                 nextUsername,
                 blankToDefault(request.phone(), stringValue(current.get("phone"))),
                 blankToDefault(request.email(), stringValue(current.get("email"))),
                 blankToDefault(request.displayName(), stringValue(current.get("display_name"))),
-                blankToDefault(request.avatarUrl(), stringValue(current.get("avatar_url"))),
+                DefaultAvatarResolver.defaultIfBlank(
+                        request.avatarUrl(),
+                        role,
+                        blankToDefault(request.gender(), stringValue(current.get("gender")))
+                ),
                 blankToDefault(request.gender(), stringValue(current.get("gender"))),
                 blankToDefault(request.bio(), stringValue(current.get("bio"))),
+                Boolean.TRUE.equals(request.allowAdminDelete()),
                 userId
         );
         return profile(userId);
+    }
+
+    public List<Map<String, Object>> users() {
+        return jdbcTemplate.queryForList("""
+                SELECT u.id, u.username, u.role_code, u.phone, u.email, u.display_name, u.avatar_url, u.gender, u.enabled,
+                       u.allow_admin_delete, u.created_at, u.last_login_ip,
+                       COUNT(b.greenhouse_id) AS greenhouse_count
+                FROM app_user u
+                LEFT JOIN farmer_greenhouse_binding b ON b.farmer_user_id = u.id AND b.deleted = FALSE
+                WHERE u.deleted = FALSE
+                GROUP BY u.id, u.username, u.role_code, u.phone, u.email, u.display_name, u.avatar_url, u.gender, u.enabled,
+                         u.allow_admin_delete, u.created_at, u.last_login_ip
+                ORDER BY u.created_at DESC
+                """);
+    }
+
+    public List<Map<String, Object>> admins() {
+        return jdbcTemplate.queryForList("""
+                SELECT id, username, display_name, avatar_url, email
+                FROM app_user
+                WHERE role_code = 'ADMIN' AND enabled = TRUE AND deleted = FALSE
+                ORDER BY username
+                """);
+    }
+
+    @Transactional
+    public Long createUser(SaveUserRequest request) {
+        String role = normalizeRole(request.roleCode());
+        String username = request.username().trim();
+        validateUsername(username, role, null);
+        String password = request.password() == null || request.password().isBlank() ? "123456" : request.password();
+        String gender = blankToDefault(request.gender(), "MALE");
+        jdbcTemplate.update("""
+                INSERT INTO app_user(username, password_hash, role_code, phone, email, display_name, avatar_url, gender, bio, enabled, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'admin')
+                """,
+                username,
+                "{bcrypt}" + passwordEncoder.encode(password),
+                role,
+                emptyToNull(request.phone()),
+                emptyToNull(request.email()),
+                emptyToNull(request.displayName()),
+                DefaultAvatarResolver.resolve(role, gender),
+                gender,
+                blankToDefault(request.bio(), ""),
+                request.enabled() == null || request.enabled()
+        );
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM app_user WHERE username = ?", Long.class, username);
+        syncUserRole(userId, role);
+        return userId;
+    }
+
+    @Transactional
+    public void updateUser(Long userId, SaveUserRequest request) {
+        Map<String, Object> current = profile(userId);
+        String role = normalizeRole(request.roleCode() == null ? stringValue(current.get("role_code")) : request.roleCode());
+        String username = request.username().trim();
+        validateUsername(username, role, userId);
+        List<Object> params = new ArrayList<>();
+        String passwordSql = "";
+        if (request.password() != null && !request.password().isBlank()) {
+            passwordSql = " password_hash = ?,";
+            params.add("{bcrypt}" + passwordEncoder.encode(request.password()));
+        }
+        params.add(username);
+        params.add(role);
+        params.add(emptyToNull(request.phone()));
+        params.add(emptyToNull(request.email()));
+        params.add(emptyToNull(request.displayName()));
+        params.add(blankToDefault(request.gender(), "UNKNOWN"));
+        params.add(blankToDefault(request.bio(), ""));
+        params.add(request.enabled() == null || request.enabled());
+        params.add(userId);
+        jdbcTemplate.update("""
+                UPDATE app_user
+                SET%s username = ?, role_code = ?, phone = ?, email = ?, display_name = ?, gender = ?, bio = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND deleted = FALSE
+                """.formatted(passwordSql), params.toArray());
+        syncUserRole(userId, role);
+    }
+
+    @Transactional
+    public void deleteUser(Long userId, CurrentUser operator) {
+        if (operator != null && operator.id().equals(userId)) {
+            throw new BusinessException(400, "管理员不能删除自己的账号");
+        }
+        Map<String, Object> current = profile(userId);
+        if ("admin1".equalsIgnoreCase(stringValue(current.get("username")))) {
+            throw new BusinessException(400, "内置管理员账号不能删除");
+        }
+        if ("ADMIN".equals(stringValue(current.get("role_code"))) && !Boolean.TRUE.equals(current.get("allow_admin_delete"))) {
+            throw new BusinessException(400, "该管理员未允许被其他管理员删除");
+        }
+        jdbcTemplate.update("UPDATE app_user SET deleted = TRUE, deleted_at = CURRENT_TIMESTAMP, enabled = FALSE WHERE id = ?", userId);
+        jdbcTemplate.update("UPDATE farmer_greenhouse_binding SET deleted = TRUE, deleted_at = CURRENT_TIMESTAMP WHERE farmer_user_id = ?", userId);
+    }
+
+    @Transactional
+    public void bindGreenhouses(Long farmerUserId, BindGreenhousesRequest request, CurrentUser operator) {
+        Map<String, Object> farmer = profile(farmerUserId);
+        if (!"FARMER".equals(stringValue(farmer.get("role_code")))) {
+            throw new BusinessException(400, "只能为农户绑定大棚");
+        }
+        List<Long> greenhouseIds = request.greenhouseIds() == null ? List.of() : request.greenhouseIds();
+        jdbcTemplate.update("UPDATE farmer_greenhouse_binding SET deleted = TRUE, deleted_at = CURRENT_TIMESTAMP WHERE farmer_user_id = ?", farmerUserId);
+        jdbcTemplate.update("UPDATE greenhouse SET owner_user_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE owner_user_id = ?", farmerUserId);
+        for (Long greenhouseId : greenhouseIds) {
+            Integer occupied = jdbcTemplate.queryForObject("""
+                    SELECT COUNT(1)
+                    FROM farmer_greenhouse_binding
+                    WHERE greenhouse_id = ? AND farmer_user_id <> ? AND deleted = FALSE
+                    """, Integer.class, greenhouseId, farmerUserId);
+            if (occupied != null && occupied > 0) {
+                throw new BusinessException(409, "该大棚已绑定给其他农户");
+            }
+            jdbcTemplate.update("""
+                    INSERT INTO farmer_greenhouse_binding(farmer_user_id, greenhouse_id, assigned_by)
+                    VALUES (?, ?, ?)
+                    """, farmerUserId, greenhouseId, operator == null ? null : operator.id());
+            jdbcTemplate.update("UPDATE greenhouse SET owner_user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", farmerUserId, greenhouseId);
+        }
+    }
+
+    public List<Map<String, Object>> farmerGreenhouseIds(Long farmerUserId) {
+        return jdbcTemplate.queryForList("""
+                SELECT g.id, g.name
+                FROM greenhouse g
+                JOIN farmer_greenhouse_binding b ON b.greenhouse_id = g.id AND b.deleted = FALSE
+                WHERE b.farmer_user_id = ? AND g.deleted = FALSE
+                ORDER BY g.id
+                """, farmerUserId);
     }
 
     public void feedback(FeedbackRequest request) {
@@ -56,90 +201,176 @@ public class UserAccountService {
                 """, request.userId(), request.category(), request.content(), request.contact());
     }
 
-    public List<Map<String, Object>> feedbacks() {
-        return jdbcTemplate.queryForList("SELECT * FROM feedback ORDER BY created_at DESC");
-    }
-
-    public List<Map<String, Object>> users() {
-        return jdbcTemplate.queryForList("""
-                SELECT id, username, role_code, phone, email, display_name, gender, enabled, created_at, last_login_ip
-                FROM app_user ORDER BY created_at DESC
+    public List<Map<String, Object>> feedbacks(String keyword, String status) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT f.*, u.username, u.display_name
+                FROM feedback f
+                LEFT JOIN app_user u ON u.id = f.user_id
+                WHERE f.deleted = FALSE
                 """);
-    }
-
-    public Map<String, Object> operationLogs(
-            int page,
-            int size,
-            String keyword,
-            String module,
-            String username,
-            Boolean success,
-            String startTime,
-            String endTime
-    ) {
-        int normalizedPage = Math.max(page, 1);
-        int normalizedSize = Math.min(Math.max(size, 1), 100);
-        int offset = (normalizedPage - 1) * normalizedSize;
-        StringBuilder where = new StringBuilder(" WHERE 1 = 1");
         List<Object> params = new ArrayList<>();
-        appendLike(where, params, "module_name", module);
-        appendLike(where, params, "username", username);
         if (keyword != null && !keyword.isBlank()) {
-            where.append(" AND (trace_id LIKE ? OR action_name LIKE ? OR request_uri LIKE ? OR message LIKE ?)");
+            sql.append(" AND (f.category LIKE ? OR f.content LIKE ? OR f.contact LIKE ? OR u.username LIKE ?)");
             String pattern = "%" + keyword.trim() + "%";
             params.add(pattern);
             params.add(pattern);
             params.add(pattern);
             params.add(pattern);
         }
-        if (success != null) {
-            where.append(" AND success = ?");
-            params.add(success);
+        if (status != null && !status.isBlank()) {
+            sql.append(" AND f.status = ?");
+            params.add(status.trim());
         }
-        if (startTime != null && !startTime.isBlank()) {
-            where.append(" AND created_at >= ?");
-            params.add(startTime.trim());
-        }
-        if (endTime != null && !endTime.isBlank()) {
-            where.append(" AND created_at <= ?");
-            params.add(endTime.trim());
-        }
+        sql.append(" ORDER BY f.created_at DESC");
+        return jdbcTemplate.queryForList(sql.toString(), params.toArray());
+    }
 
-        Long total = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM operation_log" + where,
-                Long.class,
-                params.toArray()
-        );
-        List<Object> pageParams = new ArrayList<>(params);
-        pageParams.add(normalizedSize);
-        pageParams.add(offset);
-        List<Map<String, Object>> records = jdbcTemplate.queryForList("""
+    @Transactional
+    public Long ensureConversation(Long farmerId, Long adminId) {
+        List<Long> rows = jdbcTemplate.queryForList("""
+                SELECT id FROM feedback_conversation
+                WHERE farmer_user_id = ? AND admin_user_id = ? AND deleted = FALSE
+                """, Long.class, farmerId, adminId);
+        if (!rows.isEmpty()) {
+            return rows.get(0);
+        }
+        jdbcTemplate.update("""
+                INSERT INTO feedback_conversation(farmer_user_id, admin_user_id)
+                VALUES (?, ?)
+                """, farmerId, adminId);
+        return jdbcTemplate.queryForObject("""
+                SELECT id FROM feedback_conversation
+                WHERE farmer_user_id = ? AND admin_user_id = ? AND deleted = FALSE
+                """, Long.class, farmerId, adminId);
+    }
+
+    @Transactional
+    public void sendFeedbackMessage(CurrentUser sender, FeedbackMessageRequest request) {
+        Long conversationId;
+        Long receiverId;
+        if (sender.admin()) {
+            if (request.conversationId() == null) {
+                throw new BusinessException(400, "管理员发送消息需要选择会话");
+            }
+            conversationId = request.conversationId();
+            Map<String, Object> conversation = conversation(conversationId);
+            Long adminId = Long.valueOf(String.valueOf(conversation.get("admin_user_id")));
+            if (!adminId.equals(sender.id())) {
+                throw new BusinessException(403, "只能在自己的管理员会话中回复");
+            }
+            receiverId = Long.valueOf(String.valueOf(conversation.get("farmer_user_id")));
+        } else {
+            if (request.adminUserId() == null) {
+                throw new BusinessException(400, "请选择管理员");
+            }
+            conversationId = ensureConversation(sender.id(), request.adminUserId());
+            receiverId = request.adminUserId();
+        }
+        String messageType = request.messageType() == null || request.messageType().isBlank() ? "TEXT" : request.messageType().trim().toUpperCase();
+        jdbcTemplate.update("""
+                INSERT INTO feedback_message(conversation_id, sender_user_id, receiver_user_id, content, message_type, image_url)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """, conversationId, sender.id(), receiverId, request.content().trim(), messageType, emptyToNull(request.imageUrl()));
+        jdbcTemplate.update("""
+                UPDATE feedback_conversation
+                SET last_message = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """, "IMAGE".equals(messageType) ? "[图片] " + request.content().trim() : request.content().trim(), conversationId);
+    }
+
+    private Map<String, Object> conversation(Long conversationId) {
+        return jdbcTemplate.queryForList("""
                 SELECT *
-                FROM operation_log
-                """ + where + """
-                ORDER BY created_at DESC
-                LIMIT ? OFFSET ?
-                """, pageParams.toArray());
-        long totalValue = total == null ? 0L : total;
-        long pages = totalValue == 0 ? 0 : (totalValue + normalizedSize - 1) / normalizedSize;
-        return Map.of(
-                "records", records,
-                "total", totalValue,
-                "page", normalizedPage,
-                "size", normalizedSize,
-                "pages", pages
-        );
+                FROM feedback_conversation
+                WHERE id = ? AND deleted = FALSE
+                """, conversationId).stream().findFirst().orElseThrow(() -> new BusinessException(404, "反馈会话不存在"));
+    }
+
+    public List<Map<String, Object>> feedbackConversations(CurrentUser currentUser) {
+        if (currentUser.admin()) {
+            return jdbcTemplate.queryForList("""
+                    SELECT c.*,
+                           f.username AS farmer_username, f.display_name AS farmer_name, f.avatar_url AS farmer_avatar_url, f.gender AS farmer_gender,
+                           a.username AS admin_username, a.display_name AS admin_name, a.avatar_url AS admin_avatar_url, a.gender AS admin_gender
+                    FROM feedback_conversation c
+                    JOIN app_user f ON f.id = c.farmer_user_id
+                    JOIN app_user a ON a.id = c.admin_user_id
+                    WHERE c.deleted = FALSE
+                    ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
+                    """);
+        }
+        return jdbcTemplate.queryForList("""
+                SELECT a.id AS admin_user_id, a.username, a.display_name, a.avatar_url, a.gender,
+                       c.id AS conversation_id, c.last_message, c.last_message_at
+                FROM app_user a
+                LEFT JOIN feedback_conversation c ON c.admin_user_id = a.id AND c.farmer_user_id = ? AND c.deleted = FALSE
+                WHERE a.role_code = 'ADMIN' AND a.enabled = TRUE AND a.deleted = FALSE
+                ORDER BY c.last_message_at DESC NULLS LAST, a.username
+                """, currentUser.id());
+    }
+
+    public List<Map<String, Object>> feedbackMessages(CurrentUser currentUser, Long conversationId) {
+        Integer allowed = jdbcTemplate.queryForObject("""
+                SELECT COUNT(1)
+                FROM feedback_conversation
+                WHERE id = ?
+                  AND deleted = FALSE
+                  AND (? = TRUE OR farmer_user_id = ? OR admin_user_id = ?)
+                """, Integer.class, conversationId, currentUser.admin(), currentUser.id(), currentUser.id());
+        if (allowed == null || allowed == 0) {
+            throw new BusinessException(403, "无权查看该反馈会话");
+        }
+        return jdbcTemplate.queryForList("""
+                SELECT m.*, u.username, u.display_name, u.avatar_url
+                FROM feedback_message m
+                JOIN app_user u ON u.id = m.sender_user_id
+                WHERE m.conversation_id = ? AND m.deleted = FALSE
+                ORDER BY m.created_at
+                """, conversationId);
+    }
+
+    private void validateUsername(String username, String role, Long currentUserId) {
+        String normalizedName = username == null ? "" : username.trim();
+        if ("ADMIN".equals(role) && !normalizedName.toLowerCase().startsWith("admin")) {
+            throw new BusinessException(400, "管理员用户名必须以 admin 开头");
+        }
+        if (!"ADMIN".equals(role) && normalizedName.toLowerCase().startsWith("admin")) {
+            throw new BusinessException(400, "农户用户名不能以 admin 开头");
+        }
+        Integer exists = jdbcTemplate.queryForObject("""
+                SELECT COUNT(1)
+                FROM app_user
+                WHERE username = ?
+                  AND deleted = FALSE
+                  AND (? IS NULL OR id <> ?)
+                """, Integer.class, normalizedName, currentUserId, currentUserId);
+        if (exists != null && exists > 0) {
+            throw new BusinessException(409, "用户名已存在");
+        }
+    }
+
+    private void syncUserRole(Long userId, String role) {
+        jdbcTemplate.update("DELETE FROM auth_user_role WHERE user_id = ?", userId);
+        jdbcTemplate.update("""
+                INSERT INTO auth_user_role(user_id, role_id)
+                SELECT ?, id FROM auth_role WHERE role_code = ?
+                """, userId, role);
+    }
+
+    private String normalizeRole(String role) {
+        String normalized = role == null ? "FARMER" : role.trim().toUpperCase();
+        if (!"ADMIN".equals(normalized) && !"FARMER".equals(normalized)) {
+            throw new BusinessException(400, "角色只能是管理员或农户");
+        }
+        return normalized;
     }
 
     private String blankToDefault(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
     }
 
-    private void appendLike(StringBuilder where, List<Object> params, String column, String value) {
-        if (value != null && !value.isBlank()) {
-            where.append(" AND ").append(column).append(" LIKE ?");
-            params.add("%" + value.trim() + "%");
-        }
+    private String emptyToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private String stringValue(Object value) {

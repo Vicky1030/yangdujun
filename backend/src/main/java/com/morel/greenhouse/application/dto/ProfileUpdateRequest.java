@@ -7,6 +7,7 @@ public record ProfileUpdateRequest(
         String displayName,
         String avatarUrl,
         String gender,
-        String bio
+        String bio,
+        Boolean allowAdminDelete
 ) {
 }
