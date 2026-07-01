@@ -118,3 +118,67 @@ Invoke-RestMethod `
 ```
 
 成功后会返回写入后的七项环境指标，并且工作台和数据分析页面会读取到最新数据。
+
+## 定时主动拉取设备影子
+
+如果不想使用公网回调或内网穿透，可以让 Java 后端定时调用华为云 IoTDA `ShowDeviceShadow` 接口，读取设备影子 reported 区中的最新属性。
+
+华为云官方说明：
+
+- 应用侧 Java SDK 使用 AK/SK 鉴权。
+- `ShowDeviceShadow` 用于查询指定设备的设备影子，包括最新上报的 reported 属性。
+
+启动后端前配置：
+
+```powershell
+$env:HUAWEI_IOT_PULL_ENABLED="true"
+$env:HUAWEI_IOT_PULL_FIXED_DELAY_MS="60000"
+$env:HUAWEI_IOT_PULL_DEVICE_IDS="6a3a6da1cbb0cf6bb96829a4_WHYwhy"
+
+$env:HUAWEI_IOT_AK="你的华为云 Access Key ID"
+$env:HUAWEI_IOT_SK="你的华为云 Secret Access Key"
+$env:HUAWEI_IOT_PROJECT_ID="你的项目ID"
+$env:HUAWEI_IOT_REGION_ID="cn-north-4"
+$env:HUAWEI_IOT_ENDPOINT="https://你的IoTDA应用侧接入地址"
+```
+
+`REGION_ID` 和 `ENDPOINT` 在华为云 IoTDA 控制台的“总览 / 平台接入地址 / 应用侧”中查看。华为云文档示例中常见区域：
+
+```text
+北京四：cn-north-4
+上海一：cn-east-3
+华南广州：cn-south-1 / cn-south-4，按控制台实际显示为准
+```
+
+启动后端：
+
+```powershell
+cd backend
+mvn -Pkingbase-driver spring-boot:run
+```
+
+后端会按 `HUAWEI_IOT_PULL_FIXED_DELAY_MS` 定时拉取设备影子，把 reported properties 转成项目现有格式后入库，并继续触发阈值告警。
+
+手动测试一次拉取：
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:8084/api/v1/iot/huawei/pull" `
+  -Headers @{ "X-Huawei-Iot-Token" = "yangdujun-huawei-iot" }
+```
+
+指定设备：
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:8084/api/v1/iot/huawei/pull?deviceId=6a3a6da1cbb0cf6bb96829a4_WHYwhy" `
+  -Headers @{ "X-Huawei-Iot-Token" = "yangdujun-huawei-iot" }
+```
+
+如果你的 IoTDA 实例是基础版，且 SDK 报衍生认证相关错误，可尝试：
+
+```powershell
+$env:HUAWEI_IOT_DERIVED_AUTH="false"
+```

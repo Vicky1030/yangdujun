@@ -53,6 +53,15 @@ greenhouse:
       webhook-token: ${HUAWEI_IOT_WEBHOOK_TOKEN:yangdujun-huawei-iot}
       default-device-id: ${HUAWEI_IOT_DEFAULT_DEVICE_ID:6a3a6da1cbb0cf6bb96829a4_WHYwhy}
       device-greenhouse-map: ${HUAWEI_IOT_DEVICE_GREENHOUSE_MAP:6a3a6da1cbb0cf6bb96829a4_WHYwhy:1}
+      pull-enabled: ${HUAWEI_IOT_PULL_ENABLED:false}
+      pull-fixed-delay-ms: ${HUAWEI_IOT_PULL_FIXED_DELAY_MS:60000}
+      pull-device-ids: ${HUAWEI_IOT_PULL_DEVICE_IDS:6a3a6da1cbb0cf6bb96829a4_WHYwhy}
+      ak: ${HUAWEI_IOT_AK:}
+      sk: ${HUAWEI_IOT_SK:}
+      project-id: ${HUAWEI_IOT_PROJECT_ID:}
+      region-id: ${HUAWEI_IOT_REGION_ID:cn-north-4}
+      endpoint: ${HUAWEI_IOT_ENDPOINT:}
+      derived-auth: ${HUAWEI_IOT_DERIVED_AUTH:true}
   security:
     admin-username: admin1
     admin-default-password: ${GREENHOUSE_ADMIN_PASSWORD:admin123}
