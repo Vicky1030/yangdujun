@@ -6,7 +6,7 @@
         <h2 class="section-title">羊肚菌专业 AI 助手</h2>
         <p class="muted">结合知识库、图像识别和大棚环境数据，辅助判断长势、病虫害风险与调控建议。</p>
       </div>
-      <el-select v-model="greenhouseId" placeholder="选择大棚" style="width: 260px" clearable>
+      <el-select v-model="greenhouseId" placeholder="可选：关联大棚环境" style="width: 260px" clearable>
         <el-option v-for="item in greenhouses" :key="item.id" :label="item.name" :value="item.id" />
       </el-select>
     </section>
@@ -160,7 +160,7 @@ const clearImage = () => {
 
 onMounted(async () => {
   greenhouses.value = await fetchGreenhouses()
-  greenhouseId.value = greenhouses.value[0]?.id || null
+  greenhouseId.value = null
 })
 </script>
 

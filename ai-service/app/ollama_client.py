@@ -7,12 +7,17 @@ class OllamaClient:
     def __init__(self):
         self.base_url = settings.ollama_base_url.rstrip("/")
 
-    async def generate(self, model: str, prompt: str, images: list[str] | None = None) -> str:
+    async def generate(self, model: str, prompt: str, images: list[str] | None = None, max_tokens: int | None = None) -> str:
         payload = {
             "model": model,
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0.2},
+            "keep_alive": settings.ollama_keep_alive,
+            "options": {
+                "temperature": 0.2,
+                "num_ctx": 4096,
+                "num_predict": max_tokens or settings.text_max_tokens,
+            },
         }
         if images:
             payload["images"] = images

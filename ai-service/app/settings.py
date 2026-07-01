@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     upload_dir: Path = Path("data/uploads")
     chunk_size: int = 900
     chunk_overlap: int = 160
+    text_max_tokens: int = 700
+    vision_max_tokens: int = 450
+    ollama_keep_alive: str = "10m"
 
     model_config = SettingsConfigDict(env_prefix="MOREL_AI_", env_file=".env")
 
