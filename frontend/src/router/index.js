@@ -12,6 +12,8 @@ import FeedbackAdminView from '../views/FeedbackAdminView.vue'
 import FarmerHomeView from '../views/FarmerHomeView.vue'
 import FarmerFeedbackView from '../views/FarmerFeedbackView.vue'
 import FarmerAnalyticsView from '../views/FarmerAnalyticsView.vue'
+import AiAssistantView from '../views/AiAssistantView.vue'
+import AiSuggestionAdminView from '../views/AiSuggestionAdminView.vue'
 
 const routes = [
   { path: '/login', component: LoginView },
@@ -20,15 +22,17 @@ const routes = [
     component: ConsoleLayout,
     children: [
       { path: '', name: 'dashboard', component: DashboardView, meta: { title: '管理总览', role: 'ADMIN' } },
-      { path: 'farmer', name: 'farmer', component: FarmerHomeView, meta: { title: '农户工作台' } },
+      { path: 'farmer', name: 'farmer', component: FarmerHomeView, meta: { title: '农户工作台', role: 'FARMER' } },
       { path: 'devices', name: 'devices', component: DeviceView, meta: { title: '设备管理' } },
       { path: 'alerts', name: 'alerts', component: AlertView, meta: { title: '告警中心' } },
       { path: 'analytics', name: 'farmerAnalytics', component: FarmerAnalyticsView, meta: { title: '数据分析', role: 'FARMER' } },
+      { path: 'ai-assistant', name: 'aiAssistant', component: AiAssistantView, meta: { title: 'AI助手' } },
+      { path: 'ai-suggestions', name: 'aiSuggestions', component: AiSuggestionAdminView, meta: { title: 'AI建议中心', role: 'ADMIN' } },
       { path: 'traceability', name: 'traceability', component: TraceabilityView, meta: { title: '批次溯源' } },
       { path: 'profile', name: 'profile', component: ProfileView, meta: { title: '个人中心' } },
       { path: 'users', name: 'users', component: UserAdminView, meta: { title: '农户管理', role: 'ADMIN' } },
       { path: 'feedback', name: 'feedback', component: FeedbackAdminView, meta: { title: '反馈处理', role: 'ADMIN' } },
-      { path: 'farmer-feedback', name: 'farmerFeedback', component: FarmerFeedbackView, meta: { title: '问题反馈' } }
+      { path: 'farmer-feedback', name: 'farmerFeedback', component: FarmerFeedbackView, meta: { title: '问题反馈', role: 'FARMER' } }
     ]
   }
 ]

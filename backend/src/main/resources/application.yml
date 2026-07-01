@@ -41,6 +41,10 @@ management:
         include: health,info
 
 greenhouse:
+  ai:
+    service-url: ${MOREL_AI_SERVICE_URL:http://127.0.0.1:18080}
+    scheduled-analysis-enabled: ${MOREL_AI_SCHEDULED_ANALYSIS_ENABLED:true}
+    scheduled-analysis-fixed-delay-ms: ${MOREL_AI_SCHEDULED_ANALYSIS_FIXED_DELAY_MS:300000}
   hardware:
     gateway-enabled: false
     mqtt-topic-prefix: morel/greenhouse

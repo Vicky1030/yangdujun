@@ -1,7 +1,7 @@
 package com.morel.greenhouse.application.service;
 
-import com.morel.greenhouse.application.dto.DashboardOverview;
 import com.morel.greenhouse.application.dto.AlertDetail;
+import com.morel.greenhouse.application.dto.DashboardOverview;
 import com.morel.greenhouse.application.dto.ProductionSummary;
 import com.morel.greenhouse.application.port.GreenhouseRepository;
 import com.morel.greenhouse.domain.alert.AlertStatus;
@@ -38,13 +38,7 @@ public class GreenhouseQueryService {
     public DashboardOverview getOverview(Long greenhouseId, CurrentUser currentUser) {
         List<Greenhouse> greenhouses = visibleGreenhouses(currentUser);
         if (greenhouses.isEmpty()) {
-            return new DashboardOverview(
-                    List.of(),
-                    null,
-                    List.of(),
-                    List.of(),
-                    new ProductionSummary(0, 0, 0, 0, "-")
-            );
+            return new DashboardOverview(List.of(), null, List.of(), List.of(), new ProductionSummary(0, 0, 0, 0, 0, "-"));
         }
         Long resolvedGreenhouseId = resolveVisibleGreenhouseId(greenhouseId, greenhouses);
         TelemetrySnapshot telemetry = getTelemetry(resolvedGreenhouseId, currentUser);
@@ -52,21 +46,20 @@ public class GreenhouseQueryService {
         List<GreenhouseAlert> activeAlerts = repository.findAlerts(resolvedGreenhouseId).stream()
                 .filter(alert -> alert.status() != AlertStatus.RESOLVED)
                 .toList();
-
         ProductionSummary summary = new ProductionSummary(
                 (int) greenhouses.stream().filter(g -> g.status() != GreenhouseStatus.OFFLINE).count(),
                 (int) devices.stream().filter(device -> device.status() == DeviceStatus.RUNNING).count(),
                 activeAlerts.size(),
+                batchCount(greenhouses.stream().map(Greenhouse::id).toList()),
                 1680.5,
                 "A"
         );
-
         return new DashboardOverview(greenhouses, telemetry, devices, activeAlerts, summary);
     }
 
     public TelemetrySnapshot getTelemetry(Long greenhouseId, CurrentUser currentUser) {
         return repository.findCurrentTelemetry(resolveGreenhouseId(greenhouseId, currentUser))
-                .orElseThrow(() -> new BusinessException(404, "greenhouse telemetry not found"));
+                .orElseThrow(() -> new BusinessException(404, "大棚遥测数据不存在"));
     }
 
     public List<Device> listDevices(Long greenhouseId, CurrentUser currentUser) {
@@ -169,6 +162,18 @@ public class GreenhouseQueryService {
 
     private Long resolveGreenhouseId(Long greenhouseId, CurrentUser currentUser) {
         return resolveVisibleGreenhouseId(greenhouseId, visibleGreenhouses(currentUser));
+    }
+
+    private int batchCount(List<Long> greenhouseIds) {
+        if (greenhouseIds.isEmpty()) {
+            return 0;
+        }
+        StringBuilder sql = new StringBuilder("SELECT COUNT(1) FROM production_batch WHERE deleted = FALSE AND greenhouse_id IN (");
+        sql.append("?,".repeat(greenhouseIds.size()));
+        sql.setLength(sql.length() - 1);
+        sql.append(")");
+        Long count = jdbcTemplate.queryForObject(sql.toString(), Long.class, greenhouseIds.toArray());
+        return count == null ? 0 : count.intValue();
     }
 
     private Long resolveVisibleGreenhouseId(Long greenhouseId, List<Greenhouse> visibleGreenhouses) {

@@ -30,6 +30,18 @@
           <el-icon><TrendCharts /></el-icon>
           <span>数据分析</span>
         </el-menu-item>
+        <el-menu-item v-if="!isAdmin" index="/ai-assistant">
+          <el-icon><ChatLineRound /></el-icon>
+          <span>AI助手</span>
+        </el-menu-item>
+        <el-menu-item v-if="isAdmin" index="/ai-assistant">
+          <el-icon><ChatLineRound /></el-icon>
+          <span>AI对话诊断</span>
+        </el-menu-item>
+        <el-menu-item v-if="isAdmin" index="/ai-suggestions">
+          <el-icon><Aim /></el-icon>
+          <span>AI建议中心</span>
+        </el-menu-item>
         <el-menu-item index="/traceability">
           <el-icon><Tickets /></el-icon>
           <span>批次溯源</span>
@@ -37,6 +49,7 @@
         <el-menu-item v-if="!isAdmin" index="/farmer-feedback">
           <el-icon><ChatDotRound /></el-icon>
           <span>问题反馈</span>
+          <i v-if="unreadCount" class="menu-dot">{{ unreadCount }}</i>
         </el-menu-item>
         <el-menu-item index="/profile">
           <el-icon><User /></el-icon>
@@ -50,6 +63,7 @@
           <el-menu-item index="/feedback">
             <el-icon><ChatDotRound /></el-icon>
             <span>反馈处理</span>
+            <i v-if="unreadCount" class="menu-dot">{{ unreadCount }}</i>
           </el-menu-item>
         </template>
       </el-menu>
@@ -62,11 +76,18 @@
           <h1>{{ $route.meta.title || '智慧大棚控制台' }}</h1>
         </div>
         <div class="header-actions">
-          <el-dropdown>
+          <button class="message-button" type="button" title="未读消息" @click="openUnread">
+            <el-icon><Bell /></el-icon>
+            <i v-if="unreadCount" class="badge">{{ unreadCount }}</i>
+          </button>
+          <el-dropdown trigger="click">
             <span class="operator">{{ operatorName }}</span>
             <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="logout">退出登录</el-dropdown-item>
+              <el-dropdown-menu class="operator-menu">
+                <el-dropdown-item @click="router.push('/profile')">个人中心</el-dropdown-item>
+                <el-dropdown-item divided @click="logout">
+                  <span class="logout-item">退出登录</span>
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -74,28 +95,76 @@
       </el-header>
 
       <el-main class="console__main">
-        <RouterView />
+        <RouterView @feedback-read="loadUnread" />
       </el-main>
     </el-container>
   </el-container>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { ChatDotRound, DataAnalysis, House, Operation, Tickets, TrendCharts, User, UserFilled, Warning } from '@element-plus/icons-vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  Aim,
+  Bell,
+  ChatDotRound,
+  ChatLineRound,
+  DataAnalysis,
+  House,
+  Operation,
+  Tickets,
+  TrendCharts,
+  User,
+  UserFilled,
+  Warning
+} from '@element-plus/icons-vue'
+import { fetchUnreadFeedback } from '../services/user'
 import { useSessionStore } from '../stores/session'
 
 const router = useRouter()
+const route = useRoute()
 const session = useSessionStore()
+const unreadCount = ref(0)
+const firstConversationId = ref('')
+let timer = null
+
 const isAdmin = computed(() => session.profile?.role === 'ADMIN')
 const currentDate = computed(() => new Date().toLocaleString('zh-CN'))
 const operatorName = computed(() => session.profile?.username || '用户')
+
+const loadUnread = async () => {
+  if (!session.token) return
+  try {
+    const summary = await fetchUnreadFeedback()
+    unreadCount.value = Number(summary.unreadCount || 0)
+    firstConversationId.value = summary.firstConversationId || ''
+  } catch {
+    unreadCount.value = 0
+    firstConversationId.value = ''
+  }
+}
+
+const openUnread = () => {
+  const path = isAdmin.value ? '/feedback' : '/farmer-feedback'
+  router.push({
+    path,
+    query: firstConversationId.value ? { conversationId: firstConversationId.value } : {}
+  })
+}
 
 const logout = () => {
   session.signOut()
   router.push('/login')
 }
+
+onMounted(() => {
+  loadUnread()
+  timer = window.setInterval(loadUnread, 15000)
+})
+onBeforeUnmount(() => {
+  if (timer) window.clearInterval(timer)
+})
+watch(() => route.fullPath, loadUnread)
 </script>
 
 <style scoped>
@@ -125,6 +194,7 @@ const logout = () => {
 .brand span { margin-top: 4px; color: var(--muted); font-size: 12px; }
 .nav { border: 0; background: transparent; }
 .nav :deep(.el-menu-item) {
+  position: relative;
   height: 48px;
   margin: 4px 12px;
   border-radius: var(--radius);
@@ -136,29 +206,71 @@ const logout = () => {
   color: var(--brand-strong);
   box-shadow: inset 3px 0 0 var(--brand);
 }
+.menu-dot {
+  position: absolute;
+  right: 10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #f05252;
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  font-style: normal;
+}
 .console__header {
   display: flex;
   height: 84px;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.84);
   backdrop-filter: blur(16px);
 }
 .console__header p, .console__header h1 { margin: 0; }
 .console__header p { color: var(--muted); font-size: 13px; }
 .console__header h1 { margin-top: 4px; color: var(--ink); font-size: 22px; }
-.header-actions { display: flex; gap: 14px; align-items: center; }
+.header-actions { display: flex; gap: 12px; align-items: center; }
+.message-button {
+  position: relative;
+  display: inline-grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255,255,255,.9);
+  color: var(--ink);
+  cursor: pointer;
+}
+.badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #f05252;
+  color: #fff;
+  font-size: 12px;
+  line-height: 16px;
+  font-style: normal;
+}
 .operator {
   display: inline-flex;
   align-items: center;
   cursor: pointer;
-  border: 1px solid var(--line);
+  border: 2px solid #1c2b22;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.92);
   color: var(--ink);
-  padding: 9px 14px;
-  font-weight: 800;
+  padding: 9px 16px;
+  font-weight: 900;
 }
+.logout-item { color: #d44444; font-weight: 900; }
 .console__main { min-height: calc(100vh - 84px); padding: 24px; }
 </style>

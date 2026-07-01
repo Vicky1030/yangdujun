@@ -2,6 +2,8 @@ package com.morel.greenhouse.interfaces.controller;
 
 import com.morel.greenhouse.application.dto.AlertCommandRequest;
 import com.morel.greenhouse.application.dto.AlertDetail;
+import com.morel.greenhouse.application.dto.CreateBatchEventRequest;
+import com.morel.greenhouse.application.dto.CreateBatchRequest;
 import com.morel.greenhouse.application.dto.CreateDeviceRequest;
 import com.morel.greenhouse.application.dto.CreateGreenhouseRequest;
 import com.morel.greenhouse.application.dto.DashboardOverview;
@@ -63,8 +65,8 @@ public class GreenhouseController {
     }
 
     @PostMapping
-    public ApiResult<Void> createGreenhouse(@Valid @RequestBody CreateGreenhouseRequest request) {
-        managementService.createGreenhouse(request);
+    public ApiResult<Void> createGreenhouse(@Valid @RequestBody CreateGreenhouseRequest request, HttpServletRequest servletRequest) {
+        managementService.createGreenhouse(request, currentUser(servletRequest));
         return ApiResult.ok();
     }
 
@@ -145,8 +147,7 @@ public class GreenhouseController {
         if (request.deviceId() != null) {
             deviceCommandService.execute(new DeviceCommandRequest(request.deviceId(), request.command(), request.note()));
         }
-        CurrentUser currentUser = currentUser(servletRequest);
-        managementService.recordAlertCommand(id, request, currentUser == null ? "管理员" : currentUser.username());
+        managementService.recordAlertCommand(id, request, currentUser(servletRequest));
         return ApiResult.ok();
     }
 
@@ -170,6 +171,22 @@ public class GreenhouseController {
     @GetMapping("/batches/{id}")
     public ApiResult<Map<String, Object>> batchDetail(@PathVariable Long id, HttpServletRequest servletRequest) {
         return ApiResult.ok(queryService.batchDetail(id, currentUser(servletRequest)));
+    }
+
+    @PostMapping("/batches")
+    public ApiResult<Map<String, Object>> createBatch(@Valid @RequestBody CreateBatchRequest request, HttpServletRequest servletRequest) {
+        Long id = managementService.createBatch(request, currentUser(servletRequest));
+        return ApiResult.ok(Map.of("id", id));
+    }
+
+    @PostMapping("/batches/{id}/events")
+    public ApiResult<Map<String, Object>> createBatchEvent(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateBatchEventRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        Long eventId = managementService.createBatchEvent(id, request, currentUser(servletRequest));
+        return ApiResult.ok(Map.of("id", eventId));
     }
 
     private CurrentUser currentUser(HttpServletRequest request) {

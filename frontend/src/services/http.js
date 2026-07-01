@@ -6,15 +6,20 @@ export const http = axios.create({
   timeout: 10000
 })
 
-http.interceptors.request.use((config) => {
+export const aiHttp = axios.create({
+  baseURL: '/api/v1',
+  timeout: 300000
+})
+
+const attachToken = (config) => {
   const token = localStorage.getItem('greenhouse_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
-})
+}
 
-http.interceptors.response.use((response) => {
+const unwrapResponse = (response) => {
   const result = response.data
   if (result && result.code === 0) {
     return result.data
@@ -22,8 +27,13 @@ http.interceptors.response.use((response) => {
   const message = result?.message || '请求失败'
   ElMessage.error(message)
   return Promise.reject(new Error(message))
-}, (error) => {
-  const message = error.response?.data?.message || error.message || '网络异常，请稍后重试'
+}
+
+const handleError = (error) => {
+  const timeout = error.code === 'ECONNABORTED' || String(error.message || '').includes('timeout')
+  const message = timeout
+    ? 'AI 本地模型响应超时，请确认 Ollama 和 ai-service 已启动，或稍后重试'
+    : error.response?.data?.message || error.message || '网络异常，请稍后重试'
   ElMessage.error(message)
   if (error.response?.status === 401 || error.response?.data?.code === 401) {
     localStorage.removeItem('greenhouse_token')
@@ -33,4 +43,9 @@ http.interceptors.response.use((response) => {
     }
   }
   return Promise.reject(new Error(message))
-})
+}
+
+http.interceptors.request.use(attachToken)
+aiHttp.interceptors.request.use(attachToken)
+http.interceptors.response.use(unwrapResponse, handleError)
+aiHttp.interceptors.response.use(unwrapResponse, handleError)

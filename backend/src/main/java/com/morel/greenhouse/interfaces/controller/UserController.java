@@ -52,8 +52,11 @@ public class UserController {
     }
 
     @GetMapping
-    public ApiResult<List<Map<String, Object>>> users() {
-        return ApiResult.ok(userAccountService.users());
+    public ApiResult<List<Map<String, Object>>> users(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String greenhouse
+    ) {
+        return ApiResult.ok(userAccountService.users(keyword, greenhouse));
     }
 
     @PostMapping
@@ -90,6 +93,12 @@ public class UserController {
         return ApiResult.ok();
     }
 
+    @DeleteMapping("/{id}/greenhouses/{greenhouseId}")
+    public ApiResult<Void> unbindGreenhouse(@PathVariable Long id, @PathVariable Long greenhouseId) {
+        userAccountService.unbindGreenhouse(id, greenhouseId);
+        return ApiResult.ok();
+    }
+
     @GetMapping("/feedback")
     public ApiResult<List<Map<String, Object>>> feedbacks(
             @RequestParam(required = false) String keyword,
@@ -101,6 +110,11 @@ public class UserController {
     @GetMapping("/feedback/conversations")
     public ApiResult<List<Map<String, Object>>> feedbackConversations(HttpServletRequest request) {
         return ApiResult.ok(userAccountService.feedbackConversations(currentUser(request)));
+    }
+
+    @GetMapping("/feedback/unread")
+    public ApiResult<Map<String, Object>> unreadFeedback(HttpServletRequest request) {
+        return ApiResult.ok(userAccountService.unreadFeedbackSummary(currentUser(request)));
     }
 
     @GetMapping("/feedback/conversations/{id}/messages")

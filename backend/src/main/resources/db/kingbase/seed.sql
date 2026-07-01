@@ -183,8 +183,8 @@ JOIN device_type dt ON dt.type_code = 'VENTILATION_FAN'
 WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
 AND NOT EXISTS (SELECT 1 FROM greenhouse_device WHERE name = '循环风机组' AND greenhouse_id = g.id AND deleted = FALSE);
 
-INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, light_lux, co2_ppm, soil_moisture)
-SELECT g.id, 21.8, 84.6, 4280, 790, 62.5 FROM greenhouse g
+INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, air_temperature, air_humidity, soil_temperature, soil_humidity, ph_value, light_lux, co2_ppm, soil_moisture)
+SELECT g.id, 21.8, 84.6, 21.8, 84.6, 20.6, 62.5, 6.7, 4280, 790, 62.5 FROM greenhouse g
 WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
   AND NOT EXISTS (
     SELECT 1 FROM telemetry_snapshot ts
@@ -265,27 +265,27 @@ FROM greenhouse g JOIN device_type dt ON dt.type_code = 'VENTILATION_FAN'
 WHERE g.name = 'A03 羊肚菌试验大棚' AND g.deleted = FALSE
 AND NOT EXISTS (SELECT 1 FROM greenhouse_device WHERE name = 'A03 循环风机' AND greenhouse_id = g.id AND deleted = FALSE);
 
-INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, light_lux, co2_ppm, soil_moisture, collected_at)
-SELECT g.id, v.temperature, v.humidity, v.light_lux, v.co2_ppm, v.soil_moisture, CURRENT_TIMESTAMP - (v.hour_offset || ' hours')::INTERVAL
+INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, air_temperature, air_humidity, soil_temperature, soil_humidity, ph_value, light_lux, co2_ppm, soil_moisture, collected_at)
+SELECT g.id, v.temperature, v.humidity, v.temperature, v.humidity, v.soil_temperature, v.soil_moisture, v.ph_value, v.light_lux, v.co2_ppm, v.soil_moisture, CURRENT_TIMESTAMP - (v.hour_offset || ' hours')::INTERVAL
 FROM greenhouse g
 JOIN (
-  SELECT 1 AS hour_offset, 21.5 AS temperature, 84.0 AS humidity, 4200 AS light_lux, 760 AS co2_ppm, 61.5 AS soil_moisture
-  UNION ALL SELECT 2, 21.1, 85.2, 4100, 790, 62.0
-  UNION ALL SELECT 3, 20.8, 86.4, 3950, 830, 62.7
-  UNION ALL SELECT 4, 20.4, 87.1, 3800, 870, 63.2
-  UNION ALL SELECT 5, 20.0, 86.8, 3600, 910, 63.5
-  UNION ALL SELECT 6, 19.8, 85.9, 3400, 880, 63.1
+  SELECT 1 AS hour_offset, 21.5 AS temperature, 84.0 AS humidity, 20.3 AS soil_temperature, 4200 AS light_lux, 760 AS co2_ppm, 61.5 AS soil_moisture, 6.7 AS ph_value
+  UNION ALL SELECT 2, 21.1, 85.2, 20.1, 4100, 790, 62.0, 6.8
+  UNION ALL SELECT 3, 20.8, 86.4, 19.9, 3950, 830, 62.7, 6.7
+  UNION ALL SELECT 4, 20.4, 87.1, 19.5, 3800, 870, 63.2, 6.6
+  UNION ALL SELECT 5, 20.0, 86.8, 19.2, 3600, 910, 63.5, 6.6
+  UNION ALL SELECT 6, 19.8, 85.9, 19.1, 3400, 880, 63.1, 6.7
 ) v ON TRUE
 WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
   AND NOT EXISTS (SELECT 1 FROM telemetry_snapshot ts WHERE ts.greenhouse_id = g.id AND ts.collected_at > CURRENT_TIMESTAMP - INTERVAL '7 hours');
 
-INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, light_lux, co2_ppm, soil_moisture)
-SELECT g.id, 18.9, 91.2, 3100, 1180, 67.4 FROM greenhouse g
+INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, air_temperature, air_humidity, soil_temperature, soil_humidity, ph_value, light_lux, co2_ppm, soil_moisture)
+SELECT g.id, 18.9, 91.2, 18.9, 91.2, 18.2, 67.4, 6.5, 3100, 1180, 67.4 FROM greenhouse g
 WHERE g.name = 'A02 羊肚菌育菇大棚' AND g.deleted = FALSE
   AND NOT EXISTS (SELECT 1 FROM telemetry_snapshot ts WHERE ts.greenhouse_id = g.id AND ts.temperature = 18.9);
 
-INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, light_lux, co2_ppm, soil_moisture)
-SELECT g.id, 22.4, 78.6, 4450, 690, 59.8 FROM greenhouse g
+INSERT INTO telemetry_snapshot(greenhouse_id, temperature, humidity, air_temperature, air_humidity, soil_temperature, soil_humidity, ph_value, light_lux, co2_ppm, soil_moisture)
+SELECT g.id, 22.4, 78.6, 22.4, 78.6, 21.1, 59.8, 6.9, 4450, 690, 59.8 FROM greenhouse g
 WHERE g.name = 'A03 羊肚菌试验大棚' AND g.deleted = FALSE
   AND NOT EXISTS (SELECT 1 FROM telemetry_snapshot ts WHERE ts.greenhouse_id = g.id AND ts.temperature = 22.4);
 

@@ -46,9 +46,11 @@ public class MockGreenhouseRepository implements GreenhouseRepository {
                 greenhouseId,
                 21.8,
                 84.6,
+                20.4,
+                62.5,
+                6.7,
                 4280,
                 790,
-                62.5,
                 LocalDateTime.now().minusSeconds(12)
         ));
     }
@@ -75,7 +77,7 @@ public class MockGreenhouseRepository implements GreenhouseRepository {
     @Override
     public List<AlertDetail> findAlertDetails(Long greenhouseId) {
         return findAlerts(greenhouseId).stream()
-                .map(alert -> new AlertDetail(alert.id(), alert.greenhouseId(), "示例大棚", null, "未绑定设备",
+                .map(alert -> new AlertDetail(alert.id(), alert.greenhouseId(), "示例大棚", "温室一区", 1L, "示范农户", null, "未绑定设备",
                         alert.title(), alert.description(), alert.level().name(), alert.status().name(), alert.occurredAt(),
                         null, null, null, null))
                 .toList();

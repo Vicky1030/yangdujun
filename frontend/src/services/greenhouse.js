@@ -17,4 +17,6 @@ export const alertCommand = (id, payload) => http.post(`/greenhouses/alerts/${id
 export const fetchTraceability = (greenhouseId) => http.get('/greenhouses/traceability', { params: { greenhouseId } })
 export const fetchBatches = (params) => http.get('/greenhouses/batches', { params })
 export const fetchBatchDetail = (id) => http.get(`/greenhouses/batches/${id}`)
+export const createBatch = (payload) => http.post('/greenhouses/batches', payload)
+export const createBatchEvent = (id, payload) => http.post(`/greenhouses/batches/${id}/events`, payload)
 export const sendDeviceCommand = (payload) => http.post('/greenhouses/devices/commands', payload)

@@ -39,6 +39,8 @@ public class UserAccountService {
         Map<String, Object> current = profile(userId);
         String role = stringValue(current.get("role_code"));
         String nextUsername = blankToDefault(request.username(), stringValue(current.get("username"))).trim();
+        String oldGender = stringValue(current.get("gender"));
+        String nextGender = blankToDefault(request.gender(), oldGender);
         validateUsername(nextUsername, role, userId);
         jdbcTemplate.update("""
                 UPDATE app_user
@@ -50,12 +52,8 @@ public class UserAccountService {
                 blankToDefault(request.phone(), stringValue(current.get("phone"))),
                 blankToDefault(request.email(), stringValue(current.get("email"))),
                 blankToDefault(request.displayName(), stringValue(current.get("display_name"))),
-                DefaultAvatarResolver.defaultIfBlank(
-                        request.avatarUrl(),
-                        role,
-                        blankToDefault(request.gender(), stringValue(current.get("gender")))
-                ),
-                blankToDefault(request.gender(), stringValue(current.get("gender"))),
+                resolveProfileAvatar(request.avatarUrl(), stringValue(current.get("avatar_url")), role, oldGender, nextGender),
+                nextGender,
                 blankToDefault(request.bio(), stringValue(current.get("bio"))),
                 Boolean.TRUE.equals(request.allowAdminDelete()),
                 userId
@@ -63,23 +61,40 @@ public class UserAccountService {
         return profile(userId);
     }
 
-    public List<Map<String, Object>> users() {
-        return jdbcTemplate.queryForList("""
+    public List<Map<String, Object>> users(String keyword, String greenhouseName) {
+        StringBuilder sql = new StringBuilder("""
                 SELECT u.id, u.username, u.role_code, u.phone, u.email, u.display_name, u.avatar_url, u.gender, u.enabled,
                        u.allow_admin_delete, u.created_at, u.last_login_ip,
                        COUNT(b.greenhouse_id) AS greenhouse_count
                 FROM app_user u
                 LEFT JOIN farmer_greenhouse_binding b ON b.farmer_user_id = u.id AND b.deleted = FALSE
+                LEFT JOIN greenhouse g ON g.id = b.greenhouse_id AND g.deleted = FALSE
                 WHERE u.deleted = FALSE
+                """);
+        List<Object> params = new ArrayList<>();
+        if (keyword != null && !keyword.isBlank()) {
+            sql.append(" AND (u.username LIKE ? OR u.phone LIKE ? OR u.email LIKE ? OR u.display_name LIKE ?)");
+            String pattern = "%" + keyword.trim() + "%";
+            params.add(pattern);
+            params.add(pattern);
+            params.add(pattern);
+            params.add(pattern);
+        }
+        if (greenhouseName != null && !greenhouseName.isBlank()) {
+            sql.append(" AND g.name LIKE ?");
+            params.add("%" + greenhouseName.trim() + "%");
+        }
+        sql.append("""
                 GROUP BY u.id, u.username, u.role_code, u.phone, u.email, u.display_name, u.avatar_url, u.gender, u.enabled,
                          u.allow_admin_delete, u.created_at, u.last_login_ip
                 ORDER BY u.created_at DESC
                 """);
+        return jdbcTemplate.queryForList(sql.toString(), params.toArray());
     }
 
     public List<Map<String, Object>> admins() {
         return jdbcTemplate.queryForList("""
-                SELECT id, username, display_name, avatar_url, email
+                SELECT id, username, display_name, avatar_url, gender, email
                 FROM app_user
                 WHERE role_code = 'ADMIN' AND enabled = TRUE AND deleted = FALSE
                 ORDER BY username
@@ -186,12 +201,33 @@ public class UserAccountService {
 
     public List<Map<String, Object>> farmerGreenhouseIds(Long farmerUserId) {
         return jdbcTemplate.queryForList("""
-                SELECT g.id, g.name
+                SELECT g.id, g.name, g.location, g.status, g.area, g.crop_stage
                 FROM greenhouse g
                 JOIN farmer_greenhouse_binding b ON b.greenhouse_id = g.id AND b.deleted = FALSE
                 WHERE b.farmer_user_id = ? AND g.deleted = FALSE
                 ORDER BY g.id
                 """, farmerUserId);
+    }
+
+    @Transactional
+    public void unbindGreenhouse(Long farmerUserId, Long greenhouseId) {
+        Map<String, Object> farmer = profile(farmerUserId);
+        if (!"FARMER".equals(stringValue(farmer.get("role_code")))) {
+            throw new BusinessException(400, "只能解除农户的大棚绑定");
+        }
+        int updated = jdbcTemplate.update("""
+                UPDATE farmer_greenhouse_binding
+                SET deleted = TRUE, deleted_at = CURRENT_TIMESTAMP
+                WHERE farmer_user_id = ? AND greenhouse_id = ? AND deleted = FALSE
+                """, farmerUserId, greenhouseId);
+        if (updated == 0) {
+            throw new BusinessException(404, "该农户未绑定此大棚");
+        }
+        jdbcTemplate.update("""
+                UPDATE greenhouse
+                SET owner_user_id = NULL, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND owner_user_id = ?
+                """, greenhouseId, farmerUserId);
     }
 
     public void feedback(FeedbackRequest request) {
@@ -249,16 +285,20 @@ public class UserAccountService {
         Long conversationId;
         Long receiverId;
         if (sender.admin()) {
-            if (request.conversationId() == null) {
-                throw new BusinessException(400, "管理员发送消息需要选择会话");
+            if (request.conversationId() != null) {
+                conversationId = request.conversationId();
+                Map<String, Object> conversation = conversation(conversationId);
+                Long adminId = Long.valueOf(String.valueOf(conversation.get("admin_user_id")));
+                if (!adminId.equals(sender.id())) {
+                    throw new BusinessException(403, "只能在自己的管理员会话中回复");
+                }
+                receiverId = Long.valueOf(String.valueOf(conversation.get("farmer_user_id")));
+            } else if (request.receiverUserId() != null) {
+                receiverId = request.receiverUserId();
+                conversationId = ensureConversation(receiverId, sender.id());
+            } else {
+                throw new BusinessException(400, "管理员发送消息需要选择农户会话");
             }
-            conversationId = request.conversationId();
-            Map<String, Object> conversation = conversation(conversationId);
-            Long adminId = Long.valueOf(String.valueOf(conversation.get("admin_user_id")));
-            if (!adminId.equals(sender.id())) {
-                throw new BusinessException(403, "只能在自己的管理员会话中回复");
-            }
-            receiverId = Long.valueOf(String.valueOf(conversation.get("farmer_user_id")));
         } else {
             if (request.adminUserId() == null) {
                 throw new BusinessException(400, "请选择管理员");
@@ -278,6 +318,20 @@ public class UserAccountService {
                 """, "IMAGE".equals(messageType) ? "[图片] " + request.content().trim() : request.content().trim(), conversationId);
     }
 
+    @Transactional
+    public void sendSystemMessage(Long farmerId, Long adminId, Long senderId, Long receiverId, String content) {
+        Long conversationId = ensureConversation(farmerId, adminId);
+        jdbcTemplate.update("""
+                INSERT INTO feedback_message(conversation_id, sender_user_id, receiver_user_id, content, message_type)
+                VALUES (?, ?, ?, ?, 'TEXT')
+                """, conversationId, senderId, receiverId, content);
+        jdbcTemplate.update("""
+                UPDATE feedback_conversation
+                SET last_message = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """, content, conversationId);
+    }
+
     private Map<String, Object> conversation(Long conversationId) {
         return jdbcTemplate.queryForList("""
                 SELECT *
@@ -289,26 +343,44 @@ public class UserAccountService {
     public List<Map<String, Object>> feedbackConversations(CurrentUser currentUser) {
         if (currentUser.admin()) {
             return jdbcTemplate.queryForList("""
-                    SELECT c.*,
+                    SELECT c.id AS conversation_id, c.status, c.last_message, c.last_message_at, c.created_at,
+                           f.id AS farmer_user_id,
                            f.username AS farmer_username, f.display_name AS farmer_name, f.avatar_url AS farmer_avatar_url, f.gender AS farmer_gender,
-                           a.username AS admin_username, a.display_name AS admin_name, a.avatar_url AS admin_avatar_url, a.gender AS admin_gender
-                    FROM feedback_conversation c
-                    JOIN app_user f ON f.id = c.farmer_user_id
-                    JOIN app_user a ON a.id = c.admin_user_id
-                    WHERE c.deleted = FALSE
-                    ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
-                    """);
+                           a.id AS admin_user_id, a.username AS admin_username, a.display_name AS admin_name, a.avatar_url AS admin_avatar_url, a.gender AS admin_gender,
+                           COALESCE((
+                               SELECT COUNT(1)
+                               FROM feedback_message m
+                               WHERE m.conversation_id = c.id
+                                 AND m.receiver_user_id = ?
+                                 AND m.read_at IS NULL
+                                 AND m.deleted = FALSE
+                           ), 0) AS unread_count
+                    FROM app_user f
+                    LEFT JOIN feedback_conversation c ON c.farmer_user_id = f.id AND c.admin_user_id = ? AND c.deleted = FALSE
+                    JOIN app_user a ON a.id = ?
+                    WHERE f.role_code = 'FARMER' AND f.enabled = TRUE AND f.deleted = FALSE
+                    ORDER BY c.last_message_at DESC NULLS LAST, f.username
+                    """, currentUser.id(), currentUser.id(), currentUser.id());
         }
         return jdbcTemplate.queryForList("""
                 SELECT a.id AS admin_user_id, a.username, a.display_name, a.avatar_url, a.gender,
-                       c.id AS conversation_id, c.last_message, c.last_message_at
+                       c.id AS conversation_id, c.last_message, c.last_message_at,
+                       COALESCE((
+                           SELECT COUNT(1)
+                           FROM feedback_message m
+                           WHERE m.conversation_id = c.id
+                             AND m.receiver_user_id = ?
+                             AND m.read_at IS NULL
+                             AND m.deleted = FALSE
+                       ), 0) AS unread_count
                 FROM app_user a
                 LEFT JOIN feedback_conversation c ON c.admin_user_id = a.id AND c.farmer_user_id = ? AND c.deleted = FALSE
                 WHERE a.role_code = 'ADMIN' AND a.enabled = TRUE AND a.deleted = FALSE
                 ORDER BY c.last_message_at DESC NULLS LAST, a.username
-                """, currentUser.id());
+                """, currentUser.id(), currentUser.id());
     }
 
+    @Transactional
     public List<Map<String, Object>> feedbackMessages(CurrentUser currentUser, Long conversationId) {
         Integer allowed = jdbcTemplate.queryForObject("""
                 SELECT COUNT(1)
@@ -320,13 +392,37 @@ public class UserAccountService {
         if (allowed == null || allowed == 0) {
             throw new BusinessException(403, "无权查看该反馈会话");
         }
+        jdbcTemplate.update("""
+                UPDATE feedback_message
+                SET read_at = CURRENT_TIMESTAMP
+                WHERE conversation_id = ? AND receiver_user_id = ? AND read_at IS NULL AND deleted = FALSE
+                """, conversationId, currentUser.id());
         return jdbcTemplate.queryForList("""
-                SELECT m.*, u.username, u.display_name, u.avatar_url
+                SELECT m.*, u.username, u.display_name, u.avatar_url, u.gender
                 FROM feedback_message m
                 JOIN app_user u ON u.id = m.sender_user_id
                 WHERE m.conversation_id = ? AND m.deleted = FALSE
                 ORDER BY m.created_at
                 """, conversationId);
+    }
+
+    public Map<String, Object> unreadFeedbackSummary(CurrentUser currentUser) {
+        Long total = jdbcTemplate.queryForObject("""
+                SELECT COUNT(1)
+                FROM feedback_message
+                WHERE receiver_user_id = ? AND read_at IS NULL AND deleted = FALSE
+                """, Long.class, currentUser.id());
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
+                SELECT conversation_id
+                FROM feedback_message
+                WHERE receiver_user_id = ? AND read_at IS NULL AND deleted = FALSE
+                ORDER BY created_at
+                LIMIT 1
+                """, currentUser.id());
+        return Map.of(
+                "unreadCount", total == null ? 0 : total,
+                "firstConversationId", rows.isEmpty() ? "" : rows.get(0).get("conversation_id")
+        );
     }
 
     private void validateUsername(String username, String role, Long currentUserId) {
@@ -371,6 +467,14 @@ public class UserAccountService {
 
     private String emptyToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String resolveProfileAvatar(String requestedAvatar, String currentAvatar, String role, String oldGender, String nextGender) {
+        String oldDefault = DefaultAvatarResolver.resolve(role, oldGender);
+        if (requestedAvatar == null || requestedAvatar.isBlank() || requestedAvatar.equals(oldDefault)) {
+            return DefaultAvatarResolver.resolve(role, nextGender);
+        }
+        return requestedAvatar;
     }
 
     private String stringValue(Object value) {

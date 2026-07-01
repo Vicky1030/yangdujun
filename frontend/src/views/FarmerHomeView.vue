@@ -10,34 +10,41 @@
         <el-select v-if="overview.greenhouses.length" v-model="greenhouseId" style="width: 240px" @change="load">
           <el-option v-for="item in overview.greenhouses" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
+        <el-button @click="openGreenhouseDialog">添加大棚</el-button>
         <el-button type="primary" @click="$router.push('/profile')">完善资料</el-button>
       </div>
     </section>
 
     <section v-if="isEmptyFarmer" class="panel empty-workbench">
       <div>
-        <span class="eyebrow">等待管理员绑定</span>
+        <span class="eyebrow">可以先创建自己的大棚</span>
         <h3>当前账号还没有大棚或设备数据</h3>
-        <p>请联系管理员为你分配大棚、绑定设备和创建生产批次。绑定完成后，这里会显示你的实时环境、告警、设备状态和巡检任务。</p>
+        <p>你可以自己添加大棚，系统会自动绑定到当前账号。设备、批次和告警数据可以后续继续补充。</p>
       </div>
+      <el-button type="primary" @click="openGreenhouseDialog">添加大棚</el-button>
     </section>
 
     <template v-else>
       <div class="metric-grid farmer-metrics">
         <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>温度</span>
-          <strong>{{ telemetry.temperature ?? '-' }} ℃</strong>
+          <span>空气温度</span>
+          <strong>{{ telemetry.airTemperature ?? '-' }} ℃</strong>
           <small>{{ temperatureAdvice }}</small>
         </button>
         <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>湿度</span>
-          <strong>{{ telemetry.humidity ?? '-' }} %</strong>
+          <span>空气湿度</span>
+          <strong>{{ telemetry.airHumidity ?? '-' }} %</strong>
           <small>{{ humidityAdvice }}</small>
         </button>
         <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>CO<sub>2</sub> 浓度</span>
+          <span>土壤温湿度</span>
+          <strong>{{ telemetry.soilTemperature ?? '-' }} ℃ / {{ telemetry.soilHumidity ?? '-' }} %</strong>
+          <small>pH {{ telemetry.phValue ?? '-' }}</small>
+        </button>
+        <button class="metric-card" type="button" @click="$router.push('/analytics')">
+          <span>二氧化碳 / 光照</span>
           <strong>{{ telemetry.co2Ppm ?? '-' }} ppm</strong>
-          <small>{{ co2Advice }}</small>
+          <small>{{ telemetry.lightLux ?? '-' }} lx · {{ co2Advice }}</small>
         </button>
         <button class="metric-card" type="button" @click="$router.push('/alerts?status=OPEN')">
           <span>待处理告警</span>
@@ -107,17 +114,34 @@
         </el-table>
       </section>
     </template>
+
+    <el-dialog v-model="greenhouseDialog" title="添加大棚" width="560px">
+      <el-form label-position="top">
+        <el-form-item label="大棚名称"><el-input v-model.trim="greenhouseForm.name" /></el-form-item>
+        <el-form-item label="位置"><el-input v-model.trim="greenhouseForm.location" /></el-form-item>
+        <el-form-item label="面积（平方米）"><el-input-number v-model="greenhouseForm.area" :min="1" style="width: 100%" /></el-form-item>
+        <el-form-item label="生产阶段"><el-input v-model.trim="greenhouseForm.cropStage" /></el-form-item>
+        <div class="dialog-actions">
+          <el-button @click="greenhouseDialog = false">取消</el-button>
+          <el-button type="primary" :loading="savingGreenhouse" @click="submitGreenhouse">保存</el-button>
+        </div>
+      </el-form>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { fetchOverview } from '../services/greenhouse'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { createGreenhouse, fetchOverview } from '../services/greenhouse'
 import { useSessionStore } from '../stores/session'
 
 const session = useSessionStore()
 const loading = ref(false)
+const savingGreenhouse = ref(false)
+const greenhouseDialog = ref(false)
 const greenhouseId = ref(null)
+const greenhouseForm = reactive({ name: '', location: '', area: 300, cropStage: '出菇期' })
 const overview = ref({ greenhouses: [], devices: [], activeAlerts: [], currentTelemetry: {} })
 
 const displayName = computed(() => session.profile?.username || '农户')
@@ -130,7 +154,7 @@ const deviceTag = status => status === 'RUNNING' ? 'success' : status === 'MAINT
 const levelText = level => ({ CRITICAL: '严重', WARNING: '警告', INFO: '提示' }[level] || level)
 
 const temperatureAdvice = computed(() => {
-  const value = telemetry.value.temperature
+  const value = telemetry.value.airTemperature
   if (value == null) return '等待采集'
   if (value < 16) return '温度偏低，注意保温'
   if (value > 24) return '温度偏高，建议通风'
@@ -138,7 +162,7 @@ const temperatureAdvice = computed(() => {
 })
 
 const humidityAdvice = computed(() => {
-  const value = telemetry.value.humidity
+  const value = telemetry.value.airHumidity
   if (value == null) return '等待采集'
   if (value < 70) return '湿度偏低，注意补湿'
   if (value > 92) return '湿度偏高，留意病害风险'
@@ -154,10 +178,29 @@ const co2Advice = computed(() => {
 })
 
 const dailyTasks = computed(() => [
-  { title: '检查棚内湿度和地表状态', detail: humidityAdvice.value },
+  { title: '检查棚内空气湿度和地表状态', detail: humidityAdvice.value },
   { title: '巡看通风和加湿设备', detail: `${overview.value.devices.filter(item => item.status === 'RUNNING').length} 台设备运行中，维护设备需优先确认。` },
   { title: '记录生产阶段观察情况', detail: selectedGreenhouse.value?.cropStage ? `当前阶段：${selectedGreenhouse.value.cropStage}` : '请补充当前生产阶段。' }
 ])
+
+const openGreenhouseDialog = () => {
+  Object.assign(greenhouseForm, { name: '', location: '', area: 300, cropStage: '出菇期' })
+  greenhouseDialog.value = true
+}
+
+const submitGreenhouse = async () => {
+  if (!greenhouseForm.name) return ElMessage.warning('请填写大棚名称')
+  savingGreenhouse.value = true
+  try {
+    await createGreenhouse({ ...greenhouseForm })
+    ElMessage.success('大棚已创建并自动绑定到当前账号')
+    greenhouseDialog.value = false
+    await load()
+    greenhouseId.value = overview.value.greenhouses.at(-1)?.id || greenhouseId.value
+  } finally {
+    savingGreenhouse.value = false
+  }
+}
 
 const load = async () => {
   loading.value = true
@@ -173,15 +216,22 @@ onMounted(load)
 </script>
 
 <style scoped>
-.farmer-hero, .empty-workbench, .panel-head, .hero-actions {
+.farmer-hero,
+.empty-workbench,
+.panel-head,
+.hero-actions,
+.dialog-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
 }
+.dialog-actions { justify-content: flex-end; margin-top: 16px; }
 .eyebrow { color: var(--brand-strong); font-weight: 900; }
-.farmer-hero h2, .empty-workbench h3 { margin: 8px 0; color: var(--ink); font-size: 30px; }
-.farmer-hero p, .empty-workbench p { max-width: 760px; color: var(--muted); line-height: 1.8; }
+.farmer-hero h2,
+.empty-workbench h3 { margin: 8px 0; color: var(--ink); font-size: 30px; }
+.farmer-hero p,
+.empty-workbench p { max-width: 760px; color: var(--muted); line-height: 1.8; }
 .empty-workbench {
   min-height: 260px;
   background: radial-gradient(circle at 12% 20%, rgba(83, 184, 106, 0.14), transparent 34%), linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(239, 250, 235, 0.86));
@@ -199,12 +249,18 @@ onMounted(load)
   font-weight: 900;
   cursor: pointer;
 }
-.task-list, .alert-list { display: grid; gap: 12px; }
-.task-list article, .alert-list article { padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255, 255, 255, 0.72); }
+.task-list,
+.alert-list { display: grid; gap: 12px; }
+.task-list article,
+.alert-list article { padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255, 255, 255, 0.72); }
 .alert-list article { display: flex; gap: 12px; }
-.task-list p, .alert-list p { margin: 6px 0 0; color: var(--muted); line-height: 1.7; }
+.task-list p,
+.alert-list p { margin: 6px 0 0; color: var(--muted); line-height: 1.7; }
 @media (max-width: 760px) {
-  .farmer-hero, .empty-workbench, .panel-head, .hero-actions { flex-direction: column; align-items: stretch; }
+  .farmer-hero,
+  .empty-workbench,
+  .panel-head,
+  .hero-actions { flex-direction: column; align-items: stretch; }
   .action-grid { grid-template-columns: 1fr; }
 }
 </style>

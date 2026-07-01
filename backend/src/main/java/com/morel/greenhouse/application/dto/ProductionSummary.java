@@ -4,6 +4,7 @@ public record ProductionSummary(
         int activeGreenhouseCount,
         int runningDeviceCount,
         int unresolvedAlertCount,
+        int batchCount,
         double expectedYieldKg,
         String qualityGrade
 ) {

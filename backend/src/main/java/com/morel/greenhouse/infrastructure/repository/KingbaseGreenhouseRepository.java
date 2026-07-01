@@ -70,11 +70,14 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
     @Override
     public List<AlertDetail> findAlertDetails(Long greenhouseId) {
         return jdbcTemplate.query("""
-                SELECT a.id, a.greenhouse_id, g.name AS greenhouse_name, a.device_id, d.name AS device_name,
+                SELECT a.id, a.greenhouse_id, g.name AS greenhouse_name, g.location AS greenhouse_location,
+                       u.id AS farmer_id, u.username AS farmer_name,
+                       a.device_id, d.name AS device_name,
                        a.title, a.description, a.level, a.status, a.occurred_at,
                        a.handled_by, a.handle_note, a.handled_at, a.resolved_at
                 FROM greenhouse_alert a
                 JOIN greenhouse g ON g.id = a.greenhouse_id
+                LEFT JOIN app_user u ON u.id = g.owner_user_id
                 LEFT JOIN greenhouse_device d ON d.id = a.device_id AND d.deleted = FALSE
                 WHERE (? IS NULL OR a.greenhouse_id = ?)
                   AND a.deleted = FALSE
@@ -118,11 +121,13 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
     private TelemetrySnapshot mapTelemetry(ResultSet rs, int rowNum) throws SQLException {
         return new TelemetrySnapshot(
                 rs.getLong("greenhouse_id"),
-                rs.getDouble("temperature"),
-                rs.getDouble("humidity"),
+                rs.getDouble("air_temperature"),
+                rs.getDouble("air_humidity"),
+                rs.getDouble("soil_temperature"),
+                rs.getDouble("soil_humidity"),
+                rs.getDouble("ph_value"),
                 rs.getInt("light_lux"),
                 rs.getInt("co2_ppm"),
-                rs.getDouble("soil_moisture"),
                 rs.getTimestamp("collected_at").toLocalDateTime()
         );
     }
@@ -158,6 +163,9 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
                 rs.getLong("id"),
                 rs.getLong("greenhouse_id"),
                 rs.getString("greenhouse_name"),
+                rs.getString("greenhouse_location"),
+                rs.getObject("farmer_id") == null ? null : rs.getLong("farmer_id"),
+                rs.getString("farmer_name"),
                 rs.getObject("device_id") == null ? null : rs.getLong("device_id"),
                 rs.getString("device_name"),
                 rs.getString("title"),

@@ -13,7 +13,9 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class GreenhouseAnalyticsService {
@@ -27,9 +29,9 @@ public class GreenhouseAnalyticsService {
         Long resolvedGreenhouseId = resolveGreenhouseId(greenhouseId, currentUser);
         return new GreenhouseAnalytics(
                 telemetryTrend(resolvedGreenhouseId),
-                groupedValues("greenhouse_device", "status", "greenhouse_id", resolvedGreenhouseId),
-                groupedValues("greenhouse_alert", "level", "greenhouse_id", resolvedGreenhouseId),
-                groupedValues("greenhouse_alert", "status", "greenhouse_id", resolvedGreenhouseId),
+                completedGroupedValues("greenhouse_device", "status", "greenhouse_id", resolvedGreenhouseId, List.of("RUNNING", "STOPPED", "MAINTENANCE")),
+                completedGroupedValues("greenhouse_alert", "level", "greenhouse_id", resolvedGreenhouseId, List.of("INFO", "WARNING", "CRITICAL")),
+                completedGroupedValues("greenhouse_alert", "status", "greenhouse_id", resolvedGreenhouseId, List.of("OPEN", "ACKNOWLEDGED", "RESOLVED")),
                 greenhouseAreas(currentUser)
         );
     }
@@ -71,7 +73,7 @@ public class GreenhouseAnalyticsService {
 
     private List<TelemetryTrendPoint> telemetryTrend(Long greenhouseId) {
         List<TelemetryTrendPoint> rows = jdbcTemplate.query("""
-                SELECT collected_at, temperature, humidity, co2_ppm, soil_moisture
+                SELECT collected_at, air_temperature, air_humidity, soil_temperature, soil_humidity, ph_value, co2_ppm, light_lux
                 FROM telemetry_snapshot
                 WHERE greenhouse_id = ?
                 ORDER BY collected_at DESC
@@ -86,7 +88,8 @@ public class GreenhouseAnalyticsService {
 
     private boolean hasMeaningfulVariation(List<TelemetryTrendPoint> rows) {
         long distinct = rows.stream()
-                .map(item -> item.temperature() + "|" + item.humidity() + "|" + item.co2Ppm() + "|" + item.soilMoisture())
+                .map(item -> item.airTemperature() + "|" + item.airHumidity() + "|" + item.soilTemperature() + "|"
+                        + item.soilHumidity() + "|" + item.phValue() + "|" + item.co2Ppm() + "|" + item.lightLux())
                 .distinct()
                 .count();
         return distinct >= 3;
@@ -94,7 +97,7 @@ public class GreenhouseAnalyticsService {
 
     private List<TelemetryTrendPoint> syntheticTrend(Long greenhouseId) {
         List<TelemetryTrendPoint> latest = jdbcTemplate.query("""
-                SELECT collected_at, temperature, humidity, co2_ppm, soil_moisture
+                SELECT collected_at, air_temperature, air_humidity, soil_temperature, soil_humidity, ph_value, co2_ppm, light_lux
                 FROM telemetry_snapshot
                 WHERE greenhouse_id = ?
                 ORDER BY collected_at DESC
@@ -111,13 +114,29 @@ public class GreenhouseAnalyticsService {
             double smallWave = Math.cos((23 - i) / 4.0);
             points.add(new TelemetryTrendPoint(
                     end.minusHours(i),
-                    round(base.temperature() + wave * 1.2),
-                    round(base.humidity() + smallWave * 3.0),
+                    round(base.airTemperature() + wave * 1.2),
+                    round(base.airHumidity() + smallWave * 3.0),
+                    round(base.soilTemperature() + wave * 0.8),
+                    round(base.soilHumidity() + smallWave * 2.2),
+                    round(base.phValue() + smallWave * 0.08),
                     Math.max(300, (int) Math.round(base.co2Ppm() + wave * 55)),
-                    round(base.soilMoisture() + smallWave * 2.2)
+                    Math.max(0, (int) Math.round(base.lightLux() + smallWave * 180))
             ));
         }
         return points;
+    }
+
+    private List<ChartValue> completedGroupedValues(String table, String column, String filterColumn, Long filterValue, List<String> names) {
+        Map<String, Number> values = new LinkedHashMap<>();
+        for (String name : names) {
+            values.put(name, 0);
+        }
+        for (ChartValue value : groupedValues(table, column, filterColumn, filterValue)) {
+            values.put(value.name(), value.value());
+        }
+        return values.entrySet().stream()
+                .map(entry -> new ChartValue(entry.getKey(), entry.getValue()))
+                .toList();
     }
 
     private List<ChartValue> groupedValues(String table, String column, String filterColumn, Long filterValue) {
@@ -153,10 +172,13 @@ public class GreenhouseAnalyticsService {
     private TelemetryTrendPoint mapTelemetryPoint(ResultSet rs, int rowNum) throws SQLException {
         return new TelemetryTrendPoint(
                 rs.getTimestamp("collected_at").toLocalDateTime(),
-                rs.getDouble("temperature"),
-                rs.getDouble("humidity"),
+                rs.getDouble("air_temperature"),
+                rs.getDouble("air_humidity"),
+                rs.getDouble("soil_temperature"),
+                rs.getDouble("soil_humidity"),
+                rs.getDouble("ph_value"),
                 rs.getInt("co2_ppm"),
-                rs.getDouble("soil_moisture")
+                rs.getInt("light_lux")
         );
     }
 

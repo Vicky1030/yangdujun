@@ -12,3 +12,7 @@ backend-run*.log
 frontend-run*.log
 backend/lib/*.jar
 !backend/lib/README.md
+ai-service/.venv/
+ai-service/data/
+ai-service/**/__pycache__/
+ai-service/**/*.pyc

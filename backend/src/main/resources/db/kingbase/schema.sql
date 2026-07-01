@@ -171,6 +171,11 @@ CREATE TABLE IF NOT EXISTS telemetry_snapshot (
   greenhouse_id BIGINT NOT NULL REFERENCES greenhouse(id),
   temperature NUMERIC(6,2) NOT NULL,
   humidity NUMERIC(6,2) NOT NULL,
+  air_temperature NUMERIC(6,2) NOT NULL DEFAULT 0,
+  air_humidity NUMERIC(6,2) NOT NULL DEFAULT 0,
+  soil_temperature NUMERIC(6,2) NOT NULL DEFAULT 0,
+  soil_humidity NUMERIC(6,2) NOT NULL DEFAULT 0,
+  ph_value NUMERIC(4,2) NOT NULL DEFAULT 6.80,
   light_lux INT NOT NULL,
   co2_ppm INT NOT NULL,
   soil_moisture NUMERIC(6,2) NOT NULL,
@@ -385,6 +390,76 @@ CREATE TABLE IF NOT EXISTS operation_log (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS ai_conversation (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES app_user(id),
+  greenhouse_id BIGINT REFERENCES greenhouse(id),
+  title VARCHAR(160),
+  conversation_type VARCHAR(32) NOT NULL DEFAULT 'CHAT',
+  deleted BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ai_message (
+  id BIGSERIAL PRIMARY KEY,
+  conversation_id BIGINT NOT NULL REFERENCES ai_conversation(id),
+  sender_type VARCHAR(32) NOT NULL,
+  content TEXT NOT NULL,
+  image_url TEXT,
+  risk_level VARCHAR(32),
+  diagnosis TEXT,
+  references_json TEXT,
+  expert_trace_json TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ai_suggestion (
+  id BIGSERIAL PRIMARY KEY,
+  farmer_user_id BIGINT REFERENCES app_user(id),
+  greenhouse_id BIGINT REFERENCES greenhouse(id),
+  conversation_id BIGINT REFERENCES ai_conversation(id),
+  title VARCHAR(160) NOT NULL,
+  content TEXT NOT NULL,
+  risk_level VARCHAR(32) NOT NULL DEFAULT 'LOW',
+  status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+  downlinked_by BIGINT REFERENCES app_user(id),
+  downlinked_at TIMESTAMP,
+  deleted BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ai_knowledge_document (
+  id BIGSERIAL PRIMARY KEY,
+  file_name VARCHAR(255) NOT NULL UNIQUE,
+  file_path VARCHAR(1000),
+  chunk_count INT NOT NULL DEFAULT 0,
+  indexed_at TIMESTAMP,
+  deleted BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS greenhouse_camera_snapshot (
+  id BIGSERIAL PRIMARY KEY,
+  greenhouse_id BIGINT NOT NULL REFERENCES greenhouse(id),
+  device_id BIGINT REFERENCES greenhouse_device(id),
+  image_url TEXT,
+  image_base64 TEXT,
+  source_type VARCHAR(32) NOT NULL DEFAULT 'MANUAL',
+  ai_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+  ai_result_json TEXT,
+  ai_error VARCHAR(1000),
+  captured_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  analyzed_at TIMESTAMP,
+  deleted BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP
+);
+
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS created_by VARCHAR(64);
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS updated_by VARCHAR(64);
@@ -443,6 +518,8 @@ ALTER TABLE feedback ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFA
 ALTER TABLE feedback ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
 ALTER TABLE feedback_message ADD COLUMN IF NOT EXISTS message_type VARCHAR(32) NOT NULL DEFAULT 'TEXT';
 ALTER TABLE feedback_message ADD COLUMN IF NOT EXISTS image_url VARCHAR(512);
+ALTER TABLE feedback_message ALTER COLUMN image_url TYPE TEXT;
+ALTER TABLE production_batch_event ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 ALTER TABLE operation_log ADD COLUMN IF NOT EXISTS user_id BIGINT;
 ALTER TABLE operation_log ADD COLUMN IF NOT EXISTS risk_level VARCHAR(32) NOT NULL DEFAULT 'LOW';
@@ -452,6 +529,19 @@ ALTER TABLE verification_code ADD COLUMN IF NOT EXISTS client_ip VARCHAR(64);
 ALTER TABLE verification_code ADD COLUMN IF NOT EXISTS delivery_status VARCHAR(32) NOT NULL DEFAULT 'PENDING';
 ALTER TABLE verification_code ADD COLUMN IF NOT EXISTS delivery_message VARCHAR(500);
 ALTER TABLE verification_code ADD COLUMN IF NOT EXISTS sent_at TIMESTAMP;
+
+ALTER TABLE telemetry_snapshot ADD COLUMN IF NOT EXISTS air_temperature NUMERIC(6,2) NOT NULL DEFAULT 0;
+ALTER TABLE telemetry_snapshot ADD COLUMN IF NOT EXISTS air_humidity NUMERIC(6,2) NOT NULL DEFAULT 0;
+ALTER TABLE telemetry_snapshot ADD COLUMN IF NOT EXISTS soil_temperature NUMERIC(6,2) NOT NULL DEFAULT 0;
+ALTER TABLE telemetry_snapshot ADD COLUMN IF NOT EXISTS soil_humidity NUMERIC(6,2) NOT NULL DEFAULT 0;
+ALTER TABLE telemetry_snapshot ADD COLUMN IF NOT EXISTS ph_value NUMERIC(4,2) NOT NULL DEFAULT 6.80;
+
+UPDATE telemetry_snapshot
+SET air_temperature = CASE WHEN air_temperature = 0 THEN temperature ELSE air_temperature END,
+    air_humidity = CASE WHEN air_humidity = 0 THEN humidity ELSE air_humidity END,
+    soil_temperature = CASE WHEN soil_temperature = 0 THEN temperature - 1.20 ELSE soil_temperature END,
+    soil_humidity = CASE WHEN soil_humidity = 0 THEN soil_moisture ELSE soil_humidity END,
+    ph_value = CASE WHEN ph_value = 6.80 THEN 6.70 ELSE ph_value END;
 
 CREATE INDEX IF NOT EXISTS idx_dict_item_type_enabled ON sys_dict_item(type_code, enabled, deleted);
 CREATE INDEX IF NOT EXISTS idx_role_permission_role ON auth_role_permission(role_id);
@@ -484,9 +574,17 @@ CREATE INDEX IF NOT EXISTS idx_operation_log_user_time ON operation_log(username
 CREATE INDEX IF NOT EXISTS idx_operation_log_module_success_time ON operation_log(module_name, success, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_operation_log_trace ON operation_log(trace_id);
 CREATE INDEX IF NOT EXISTS idx_app_session_user_expires ON app_session(user_id, expires_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_conversation_user_time ON ai_conversation(user_id, created_at DESC, deleted);
+CREATE INDEX IF NOT EXISTS idx_ai_message_conversation_time ON ai_message(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_ai_suggestion_status_time ON ai_suggestion(status, created_at DESC, deleted);
+CREATE INDEX IF NOT EXISTS idx_ai_suggestion_farmer_time ON ai_suggestion(farmer_user_id, created_at DESC, deleted);
+CREATE INDEX IF NOT EXISTS idx_camera_snapshot_ai_status ON greenhouse_camera_snapshot(ai_status, captured_at, deleted);
+CREATE INDEX IF NOT EXISTS idx_camera_snapshot_greenhouse_time ON greenhouse_camera_snapshot(greenhouse_id, captured_at DESC, deleted);
 
 CREATE OR REPLACE VIEW v_greenhouse_realtime AS
-SELECT g.id, g.name, g.status, t.temperature, t.humidity, t.light_lux, t.co2_ppm, t.soil_moisture, t.collected_at
+SELECT g.id, g.name, g.status,
+       t.air_temperature, t.air_humidity, t.soil_temperature, t.soil_humidity,
+       t.ph_value, t.light_lux, t.co2_ppm, t.collected_at
 FROM greenhouse g
 LEFT JOIN telemetry_snapshot t ON t.id = (
   SELECT ts.id FROM telemetry_snapshot ts

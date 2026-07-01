@@ -4,9 +4,12 @@ import java.time.LocalDateTime;
 
 public record TelemetryTrendPoint(
         LocalDateTime collectedAt,
-        double temperature,
-        double humidity,
+        double airTemperature,
+        double airHumidity,
+        double soilTemperature,
+        double soilHumidity,
+        double phValue,
         int co2Ppm,
-        double soilMoisture
+        int lightLux
 ) {
 }
