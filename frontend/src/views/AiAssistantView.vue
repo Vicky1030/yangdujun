@@ -20,6 +20,7 @@
         <div class="messages">
           <article v-for="item in messages" :key="item.id" :class="['message', item.role]">
             <strong>{{ item.role === 'user' ? '我' : 'AI 助手' }}</strong>
+            <img v-if="item.image" class="message-image" :src="item.image" alt="上传图片" />
             <p>{{ item.content }}</p>
           </article>
           <article v-if="chatLoading" class="message assistant">
@@ -29,41 +30,22 @@
           <el-empty v-if="!messages.length" description="可以询问出菇管理、环境调控、病虫害预防等问题" />
         </div>
         <div class="composer">
+          <input ref="fileInput" class="file-input" type="file" accept="image/*" @change="pickImage" />
+          <el-button class="upload-action" :plain="!imageBase64" type="success" @click="fileInput?.click()">
+            {{ imageBase64 ? '已选择图片' : '上传图片' }}
+          </el-button>
           <el-input
             v-model="question"
             type="textarea"
             :rows="3"
-            placeholder="例如：当前湿度偏高时，羊肚菌出菇期应该怎么处理？"
+            :placeholder="imageBase64 ? '可补充图片说明，也可以直接发送诊断' : '例如：当前湿度偏高时，羊肚菌出菇期应该怎么处理？'"
           />
-          <el-button type="primary" :loading="chatLoading" :disabled="!question.trim()" @click="sendChat">发送</el-button>
+          <el-button type="primary" :loading="chatLoading" :disabled="!question.trim() && !imageBase64" @click="sendChat">发送</el-button>
         </div>
-      </div>
-
-      <div class="panel diagnosis-panel">
-        <div class="panel-head">
-          <h3>图片诊断</h3>
-          <span>图像识别专家 · 建议生成专家</span>
-        </div>
-        <label class="upload-box">
-          <input type="file" accept="image/*" @change="pickImage" />
-          <img v-if="imagePreview" :src="imagePreview" alt="待诊断图片" />
-          <span v-else>上传羊肚菌照片</span>
-        </label>
-        <el-input v-model="diagnosisQuestion" placeholder="补充说明，可选" />
-        <el-button type="primary" :loading="diagnosisLoading" :disabled="!imageBase64" @click="sendDiagnosis">开始诊断</el-button>
-
-        <div v-if="lastResult" class="result-card">
-          <div class="risk-line">
-            <strong>风险等级</strong>
-            <el-tag :type="riskType(lastResult.risk_level)">{{ riskText(lastResult.risk_level) }}</el-tag>
-          </div>
-          <p>{{ lastResult.answer }}</p>
-          <div v-if="lastResult.actions?.length" class="actions">
-            <strong>建议操作</strong>
-            <ul>
-              <li v-for="action in lastResult.actions" :key="action">{{ action }}</li>
-            </ul>
-          </div>
+        <div v-if="imagePreview" class="image-preview-chip">
+          <img :src="imagePreview" alt="已选择图片" />
+          <span>{{ imageFilename }}</span>
+          <el-button text type="danger" @click="clearImage">移除</el-button>
         </div>
       </div>
     </section>
@@ -90,29 +72,37 @@ import { chatWithAi, diagnoseImage } from '../services/ai'
 import { fetchGreenhouses } from '../services/greenhouse'
 
 const chatLoading = ref(false)
-const diagnosisLoading = ref(false)
 const greenhouses = ref([])
 const greenhouseId = ref(null)
 const question = ref('')
-const diagnosisQuestion = ref('')
 const messages = ref([])
 const lastResult = ref(null)
 const imageBase64 = ref('')
 const imagePreview = ref('')
 const imageFilename = ref('')
-
-const riskText = value => ({ HIGH: '高风险', MEDIUM: '中风险', LOW: '低风险' }[value] || value || '未知')
-const riskType = value => ({ HIGH: 'danger', MEDIUM: 'warning', LOW: 'success' }[value] || 'info')
+const fileInput = ref(null)
 
 const sendChat = async () => {
+  const hasImage = Boolean(imageBase64.value)
   const text = question.value.trim()
-  if (!text) return
+  if (!text && !hasImage) return
   const id = Date.now()
-  messages.value.push({ id, role: 'user', content: text })
+  const userText = text || '请分析这张羊肚菌图片'
+  const selectedImage = imageBase64.value
+  const selectedFilename = imageFilename.value
+  messages.value.push({ id, role: 'user', content: userText, image: imagePreview.value })
   question.value = ''
+  clearImage()
   chatLoading.value = true
   try {
-    const result = await chatWithAi({ question: text, greenhouseId: greenhouseId.value })
+    const result = hasImage
+      ? await diagnoseImage({
+          question: userText,
+          greenhouseId: greenhouseId.value,
+          imageBase64: selectedImage,
+          imageFilename: selectedFilename
+        })
+      : await chatWithAi({ question: userText, greenhouseId: greenhouseId.value })
     lastResult.value = result
     messages.value.push({ id: id + 1, role: 'assistant', content: result.answer || 'AI 暂未返回回答' })
   } catch (error) {
@@ -135,22 +125,12 @@ const pickImage = event => {
   reader.readAsDataURL(file)
 }
 
-const sendDiagnosis = async () => {
-  if (!imageBase64.value) return
-  diagnosisLoading.value = true
-  try {
-    const result = await diagnoseImage({
-      question: diagnosisQuestion.value,
-      greenhouseId: greenhouseId.value,
-      imageBase64: imageBase64.value,
-      imageFilename: imageFilename.value
-    })
-    lastResult.value = result
-    messages.value.push({ id: Date.now(), role: 'assistant', content: result.answer || '图片诊断完成' })
-  } catch (error) {
-    messages.value.push({ id: Date.now(), role: 'assistant', content: error.message || '图片诊断暂时不可用，请稍后重试' })
-  } finally {
-    diagnosisLoading.value = false
+const clearImage = () => {
+  imageBase64.value = ''
+  imagePreview.value = ''
+  imageFilename.value = ''
+  if (fileInput.value) {
+    fileInput.value.value = ''
   }
 }
 
@@ -164,8 +144,7 @@ onMounted(async () => {
 .ai-page { gap: 18px; }
 .hero,
 .panel-head,
-.composer,
-.risk-line {
+.composer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -177,10 +156,7 @@ onMounted(async () => {
   font-weight: 900;
 }
 .assistant-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(360px, .75fr);
-  align-items: start;
-  gap: 18px;
+  display: block;
 }
 .panel-head h3,
 .panel-head span {
@@ -195,18 +171,12 @@ onMounted(async () => {
   font-size: 13px;
   font-weight: 800;
 }
-.chat-panel,
-.diagnosis-panel {
+.chat-panel {
   display: grid;
   gap: 16px;
-}
-.chat-panel {
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: min(720px, calc(100vh - 230px));
   min-height: 540px;
-}
-.diagnosis-panel {
-  align-self: start;
 }
 .messages {
   display: grid;
@@ -237,50 +207,47 @@ onMounted(async () => {
   white-space: pre-wrap;
   line-height: 1.75;
 }
+.message-image {
+  display: block;
+  width: min(280px, 100%);
+  max-height: 210px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  object-fit: cover;
+}
+.file-input {
+  display: none;
+}
+.upload-action {
+  align-self: stretch;
+  min-width: 96px;
+}
 .composer :deep(.el-textarea) {
   flex: 1;
 }
-.upload-box {
-  position: relative;
-  display: grid;
-  height: 260px;
-  place-items: center;
-  overflow: hidden;
-  border: 1px dashed rgba(83, 184, 106, .55);
-  border-radius: var(--radius);
-  background: rgba(83, 184, 106, .08);
-  color: var(--brand-strong);
-  font-weight: 900;
-  cursor: pointer;
-}
-.upload-box input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-.upload-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.result-card {
-  display: grid;
-  gap: 12px;
-  max-height: min(420px, calc(100vh - 500px));
-  padding: 14px;
-  overflow: auto;
+.image-preview-chip {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  gap: 10px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: rgba(255,255,255,.76);
 }
-.result-card p {
-  margin: 0;
-  line-height: 1.8;
-  white-space: pre-wrap;
+.image-preview-chip img {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  object-fit: cover;
 }
-.actions ul {
-  margin: 8px 0 0;
-  padding-left: 20px;
+.image-preview-chip span {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
 }
 .reference-list {
@@ -299,14 +266,15 @@ onMounted(async () => {
   line-height: 1.7;
 }
 @media (max-width: 1080px) {
-  .assistant-grid {
-    grid-template-columns: 1fr;
-  }
   .chat-panel {
     height: min(680px, calc(100vh - 180px));
   }
-  .result-card {
-    max-height: 360px;
+  .composer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .upload-action {
+    width: 100%;
   }
 }
 </style>
