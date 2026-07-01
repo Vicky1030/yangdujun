@@ -48,6 +48,11 @@ greenhouse:
   hardware:
     gateway-enabled: false
     mqtt-topic-prefix: morel/greenhouse
+  iot:
+    huawei:
+      webhook-token: ${HUAWEI_IOT_WEBHOOK_TOKEN:yangdujun-huawei-iot}
+      default-device-id: ${HUAWEI_IOT_DEFAULT_DEVICE_ID:6a3a6da1cbb0cf6bb96829a4_WHYwhy}
+      device-greenhouse-map: ${HUAWEI_IOT_DEVICE_GREENHOUSE_MAP:6a3a6da1cbb0cf6bb96829a4_WHYwhy:1}
   security:
     admin-username: admin1
     admin-default-password: ${GREENHOUSE_ADMIN_PASSWORD:admin123}

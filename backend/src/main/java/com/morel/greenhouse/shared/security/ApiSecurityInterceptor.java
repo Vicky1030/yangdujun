@@ -40,6 +40,7 @@ public class ApiSecurityInterceptor implements HandlerInterceptor {
         }
         return uri.startsWith("/api/v1/auth/")
                 || uri.startsWith("/api/v1/health")
+                || uri.startsWith("/api/v1/iot/huawei/")
                 || uri.startsWith("/swagger-ui")
                 || uri.startsWith("/v3/api-docs");
     }
