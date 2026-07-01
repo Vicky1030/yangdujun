@@ -65,6 +65,7 @@ public class AiAssistantService {
         payload.put("image_filename", request.imageFilename() == null ? "" : request.imageFilename());
         payload.put("environment", environment(request.greenhouseId(), currentUser));
         Map<String, Object> result = aiServiceClient.visionDiagnosis(payload);
+        normalizeAiAnswer(result);
         Long conversationId = createConversation(currentUser.id(), request.greenhouseId(), "VISION", "图片诊断");
         saveMessage(conversationId, "USER", question, request.imageBase64(), null);
         saveMessage(conversationId, "AI", stringValue(result.get("answer")), null, result);
@@ -174,19 +175,36 @@ public class AiAssistantService {
     }
 
     private void saveMessage(Long conversationId, String senderType, String content, String imageUrl, Map<String, Object> result) {
+        String safeContent = content == null || content.isBlank() ? stringValue(result == null ? null : result.get("diagnosis")) : content;
+        if (safeContent.isBlank()) {
+            safeContent = "AI 暂未返回可展示内容";
+        }
         jdbcTemplate.update("""
                 INSERT INTO ai_message(conversation_id, sender_type, content, image_url, risk_level, diagnosis, references_json, expert_trace_json)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 conversationId,
                 senderType,
-                content,
+                safeContent,
                 imageUrl,
                 result == null ? null : stringValue(result.get("risk_level")),
                 result == null ? null : stringValue(result.get("diagnosis")),
                 result == null ? null : toJson(result.get("references")),
                 result == null ? null : toJson(result.get("expert_trace"))
         );
+    }
+
+    private void normalizeAiAnswer(Map<String, Object> result) {
+        if (result == null) {
+            return;
+        }
+        String answer = stringValue(result.get("answer"));
+        if (answer.isBlank()) {
+            String diagnosis = stringValue(result.get("diagnosis"));
+            if (!diagnosis.isBlank()) {
+                result.put("answer", diagnosis);
+            }
+        }
     }
 
     private void maybeCreateSuggestion(CurrentUser currentUser, Long greenhouseId, Long conversationId, Map<String, Object> result) {
