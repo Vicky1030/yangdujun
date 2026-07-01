@@ -61,9 +61,9 @@ mvn -Pkingbase-driver spring-boot:run
 访问：
 
 ```text
-API: http://localhost:8080/api/v1
-Health: http://localhost:8080/api/v1/health
-OpenAPI: http://localhost:8080/swagger-ui.html
+API: http://localhost:8084/api/v1
+Health: http://localhost:8084/api/v1/health
+OpenAPI: http://localhost:8084/swagger-ui.html
 ```
 
 ## 启动前端
@@ -80,7 +80,7 @@ npm run dev
 http://localhost:3000
 ```
 
-Vite 会把 `/api` 代理到 `http://localhost:8080`。
+Vite 会把 `/api` 代理到 `http://localhost:8084`。
 
 ## 启动 AI 服务
 
@@ -123,7 +123,7 @@ $env:MOREL_AI_KNOWLEDGE_DIR="D:\your\knowledge"
 
 ## 数字孪生大屏
 
-数字孪生后端默认也使用 8080，和 Java 后端会冲突。建议改端口启动：
+数字孪生后端默认使用 8080；Java 后端默认使用 8084。如 8080 被占用，可改端口启动：
 
 ```powershell
 cd digital-twin\digital-twin-backend

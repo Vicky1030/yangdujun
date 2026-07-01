@@ -65,5 +65,5 @@
 1. Proxy `/api` from Vite to Spring Boot.
 2. Build backend with Maven.
 3. Build frontend with Vite.
-4. Start backend at `8080` and frontend at `5173`.
+4. Start backend at `8084` and frontend at `5173`.
 5. Verify the main UI and API health endpoint.
