@@ -25,6 +25,29 @@
     </section>
 
     <template v-else>
+      <div class="action-grid">
+        <button type="button" @click="$router.push('/devices')">
+          <span>设备管理</span>
+          <strong>{{ deviceCount }}</strong>
+          <small>台设备</small>
+        </button>
+        <button type="button" @click="$router.push('/alerts')">
+          <span>告警处理</span>
+          <strong>{{ unresolvedAlertCount }}</strong>
+          <small>条待处理</small>
+        </button>
+        <button type="button" @click="$router.push('/analytics')">
+          <span>数据分析</span>
+          <strong>{{ telemetryMetricCount }}</strong>
+          <small>项指标</small>
+        </button>
+        <button type="button" @click="$router.push('/traceability')">
+          <span>批次溯源</span>
+          <strong>{{ batchCount }}</strong>
+          <small>个批次</small>
+        </button>
+      </div>
+
       <div class="metric-grid farmer-metrics">
         <button class="metric-card" type="button" @click="$router.push('/analytics')">
           <span>空气温湿度</span>
@@ -55,29 +78,6 @@
           <span>待处理告警</span>
           <strong>{{ overview.activeAlerts?.length || 0 }}</strong>
           <small>{{ overview.activeAlerts?.length ? '请及时查看并处理' : '当前环境稳定' }}</small>
-        </button>
-      </div>
-
-      <div class="action-grid">
-        <button type="button" @click="$router.push('/devices')">
-          <span>设备管理</span>
-          <strong>{{ deviceCount }}</strong>
-          <small>台设备</small>
-        </button>
-        <button type="button" @click="$router.push('/alerts')">
-          <span>告警处理</span>
-          <strong>{{ unresolvedAlertCount }}</strong>
-          <small>条待处理</small>
-        </button>
-        <button type="button" @click="$router.push('/analytics')">
-          <span>数据分析</span>
-          <strong>{{ telemetryMetricCount }}</strong>
-          <small>项指标</small>
-        </button>
-        <button type="button" @click="$router.push('/traceability')">
-          <span>批次溯源</span>
-          <strong>{{ batchCount }}</strong>
-          <small>个批次</small>
         </button>
       </div>
 
