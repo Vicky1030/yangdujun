@@ -7,6 +7,10 @@
         <p>查看已绑定大棚的环境指标、设备状态、待处理告警和今日巡检建议。</p>
       </div>
       <div class="hero-actions">
+        <div class="clock-card">
+          <span>{{ currentDate }}</span>
+          <strong>{{ currentTime }}</strong>
+        </div>
         <el-select v-if="overview.greenhouses.length" v-model="greenhouseId" style="width: 240px" @change="load">
           <el-option v-for="item in overview.greenhouses" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
@@ -48,38 +52,47 @@
         </button>
       </div>
 
-      <div class="metric-grid farmer-metrics">
-        <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>空气温湿度</span>
-          <strong>{{ telemetry.airTemperature ?? '-' }} ℃ / {{ telemetry.airHumidity ?? '-' }} %</strong>
-          <small>{{ temperatureAdvice }} · {{ humidityAdvice }}</small>
+      <section class="panel telemetry-panel" :class="{ expanded: telemetryExpanded }">
+        <button class="telemetry-toggle" type="button" @click="telemetryExpanded = !telemetryExpanded">
+          <div>
+            <h2 class="section-title">环境实时数据</h2>
+            <p>空气、土壤、pH、CO2、光照与告警状态</p>
+          </div>
+          <span class="toggle-icon" :class="{ open: telemetryExpanded }">⌄</span>
         </button>
-        <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>土壤温湿度</span>
-          <strong>{{ telemetry.soilTemperature ?? '-' }} ℃ / {{ telemetry.soilHumidity ?? '-' }} %</strong>
-          <small>{{ soilAdvice }}</small>
-        </button>
-        <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>pH 值</span>
-          <strong>{{ telemetry.phValue ?? '-' }}</strong>
-          <small>{{ phAdvice }}</small>
-        </button>
-        <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>二氧化碳</span>
-          <strong>{{ telemetry.co2Ppm ?? '-' }} ppm</strong>
-          <small>{{ co2Advice }}</small>
-        </button>
-        <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>光照强度</span>
-          <strong>{{ telemetry.lightLux ?? '-' }} lx</strong>
-          <small>{{ lightAdvice }}</small>
-        </button>
-        <button class="metric-card" type="button" @click="$router.push('/alerts?status=OPEN')">
-          <span>待处理告警</span>
-          <strong>{{ overview.activeAlerts?.length || 0 }}</strong>
-          <small>{{ overview.activeAlerts?.length ? '请及时查看并处理' : '当前环境稳定' }}</small>
-        </button>
-      </div>
+        <div v-if="telemetryExpanded" class="metric-grid farmer-metrics">
+          <button class="metric-card" type="button" @click="$router.push('/analytics')">
+            <span>空气温湿度</span>
+            <strong>{{ telemetry.airTemperature ?? '-' }} ℃ / {{ telemetry.airHumidity ?? '-' }} %</strong>
+            <small>{{ temperatureAdvice }} · {{ humidityAdvice }}</small>
+          </button>
+          <button class="metric-card" type="button" @click="$router.push('/analytics')">
+            <span>土壤温湿度</span>
+            <strong>{{ telemetry.soilTemperature ?? '-' }} ℃ / {{ telemetry.soilHumidity ?? '-' }} %</strong>
+            <small>{{ soilAdvice }}</small>
+          </button>
+          <button class="metric-card" type="button" @click="$router.push('/analytics')">
+            <span>pH 值</span>
+            <strong>{{ telemetry.phValue ?? '-' }}</strong>
+            <small>{{ phAdvice }}</small>
+          </button>
+          <button class="metric-card" type="button" @click="$router.push('/analytics')">
+            <span>二氧化碳</span>
+            <strong>{{ telemetry.co2Ppm ?? '-' }} ppm</strong>
+            <small>{{ co2Advice }}</small>
+          </button>
+          <button class="metric-card" type="button" @click="$router.push('/analytics')">
+            <span>光照强度</span>
+            <strong>{{ telemetry.lightLux ?? '-' }} lx</strong>
+            <small>{{ lightAdvice }}</small>
+          </button>
+          <button class="metric-card" type="button" @click="$router.push('/alerts?status=OPEN')">
+            <span>待处理告警</span>
+            <strong>{{ overview.activeAlerts?.length || 0 }}</strong>
+            <small>{{ overview.activeAlerts?.length ? '请及时查看并处理' : '当前环境稳定' }}</small>
+          </button>
+        </div>
+      </section>
 
       <div class="split-grid">
         <section class="panel">
@@ -152,7 +165,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createGreenhouse, fetchOverview } from '../services/greenhouse'
 import { useSessionStore } from '../stores/session'
@@ -162,10 +175,15 @@ const loading = ref(false)
 const savingGreenhouse = ref(false)
 const greenhouseDialog = ref(false)
 const greenhouseId = ref(null)
+const telemetryExpanded = ref(false)
+const now = ref(new Date())
+let clockTimer = null
 const greenhouseForm = reactive({ name: '', location: '', area: 300, cropStage: '出菇期' })
 const overview = ref({ greenhouses: [], devices: [], activeAlerts: [], currentTelemetry: {} })
 
 const displayName = computed(() => session.profile?.username || '农户')
+const currentDate = computed(() => now.value.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }))
+const currentTime = computed(() => now.value.toLocaleTimeString('zh-CN', { hour12: false }))
 const isEmptyFarmer = computed(() => !overview.value.greenhouses.length)
 const telemetry = computed(() => overview.value.currentTelemetry || {})
 const selectedGreenhouse = computed(() => overview.value.greenhouses.find(item => item.id === greenhouseId.value))
@@ -261,7 +279,18 @@ const load = async () => {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  clockTimer = window.setInterval(() => {
+    now.value = new Date()
+  }, 1000)
+})
+
+onBeforeUnmount(() => {
+  if (clockTimer) {
+    window.clearInterval(clockTimer)
+  }
+})
 </script>
 
 <style scoped>
@@ -284,6 +313,69 @@ onMounted(load)
 .empty-workbench {
   min-height: 260px;
   background: radial-gradient(circle at 12% 20%, rgba(83, 184, 106, 0.14), transparent 34%), linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(239, 250, 235, 0.86));
+}
+.clock-card {
+  min-width: 170px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.72);
+  text-align: right;
+}
+.clock-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.clock-card strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+}
+.telemetry-panel {
+  padding: 0;
+}
+.telemetry-toggle {
+  width: 100%;
+  min-height: 86px;
+  padding: 18px 20px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  text-align: left;
+  cursor: pointer;
+}
+.telemetry-toggle p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.toggle-icon {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--brand-strong);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+.toggle-icon.open {
+  transform: rotate(180deg);
+}
+.telemetry-panel .farmer-metrics {
+  padding: 0 18px 18px;
 }
 .metric-card { text-align: left; cursor: pointer; }
 .farmer-metrics small { display: block; margin-top: 8px; color: var(--muted); }
@@ -326,6 +418,7 @@ onMounted(load)
   .empty-workbench,
   .panel-head,
   .hero-actions { flex-direction: column; align-items: stretch; }
+  .clock-card { text-align: left; }
   .action-grid { grid-template-columns: 1fr; }
 }
 </style>
