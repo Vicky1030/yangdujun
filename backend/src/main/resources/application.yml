@@ -7,7 +7,7 @@ spring:
   profiles:
     active: kingbase,mock
   datasource:
-    driver-class-name: com.kingbase8.Driver
+    driver-class-name: ${DB_DRIVER:com.kingbase8.Driver}
     url: ${KINGBASE_URL:jdbc:kingbase8://localhost:54321/smart_greenhouse}
     username: ${KINGBASE_USERNAME:system}
     password: ${KINGBASE_PASSWORD:123456}
