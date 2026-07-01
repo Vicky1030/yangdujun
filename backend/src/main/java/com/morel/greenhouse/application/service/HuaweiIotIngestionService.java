@@ -7,7 +7,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -62,26 +61,20 @@ public class HuaweiIotIngestionService {
         double airHumidity = requiredDouble(data, "Humi", "humidity", "airHumidity");
         int lightLux = normalizeLightLux(optionalDouble(data, "Lumi", "light", "lightLux"));
 
-        GeneratedTelemetry generated = generateMissingTelemetry(greenhouseId, airTemperature, airHumidity, lightLux);
-        jdbcTemplate.update("""
-                INSERT INTO telemetry_snapshot(
-                    greenhouse_id, temperature, humidity, air_temperature, air_humidity,
-                    soil_temperature, soil_humidity, ph_value, light_lux, co2_ppm, soil_moisture, collected_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+        Map<String, Object> latest = latestTelemetry(greenhouseId);
+        double soilTemperature = round2(valueOrLatest(optionalDouble(data, "SoilTemp", "soilTemperature", "soil_temperature"), latest, "soil_temperature", 20.0));
+        double soilHumidity = round2(valueOrLatest(optionalDouble(data, "SoilHumi", "soilHumidity", "soil_humidity", "soil_moisture"), latest, "soil_humidity", 60.0));
+        double phValue = round2(valueOrLatest(optionalDouble(data, "PH", "Ph", "pH", "ph", "phValue", "ph_value"), latest, "ph_value", 6.70));
+        int co2Ppm = (int) Math.round(valueOrLatest(optionalDouble(data, "CO2", "co2", "co2Ppm", "co2_ppm"), latest, "co2_ppm", 760.0));
+        upsertCurrentTelemetry(
                 greenhouseId,
                 airTemperature,
                 airHumidity,
-                airTemperature,
-                airHumidity,
-                generated.soilTemperature(),
-                generated.soilHumidity(),
-                generated.phValue(),
+                soilTemperature,
+                soilHumidity,
+                phValue,
                 lightLux,
-                generated.co2Ppm(),
-                generated.soilHumidity(),
-                LocalDateTime.now()
+                co2Ppm
         );
 
         updateDeviceStatus(greenhouseId, data);
@@ -91,13 +84,71 @@ public class HuaweiIotIngestionService {
         result.put("greenhouse_id", greenhouseId);
         result.put("air_temperature", round2(airTemperature));
         result.put("air_humidity", round2(airHumidity));
-        result.put("soil_temperature", generated.soilTemperature());
-        result.put("soil_humidity", generated.soilHumidity());
-        result.put("ph_value", generated.phValue());
-        result.put("co2_ppm", generated.co2Ppm());
+        result.put("soil_temperature", soilTemperature);
+        result.put("soil_humidity", soilHumidity);
+        result.put("ph_value", phValue);
+        result.put("co2_ppm", co2Ppm);
         result.put("light_lux", lightLux);
         telemetryAlertService.evaluate(greenhouseId, result);
         return result;
+    }
+
+    private void upsertCurrentTelemetry(
+            Long greenhouseId,
+            double airTemperature,
+            double airHumidity,
+            double soilTemperature,
+            double soilHumidity,
+            double phValue,
+            int lightLux,
+            int co2Ppm
+    ) {
+        Long latestId = jdbcTemplate.query("""
+                SELECT id
+                FROM telemetry_snapshot
+                WHERE greenhouse_id = ?
+                ORDER BY collected_at DESC, id DESC
+                LIMIT 1
+                """, rs -> rs.next() ? rs.getLong("id") : null, greenhouseId);
+        if (latestId == null) {
+            jdbcTemplate.update("""
+                    INSERT INTO telemetry_snapshot(
+                        greenhouse_id, temperature, humidity, air_temperature, air_humidity,
+                        soil_temperature, soil_humidity, ph_value, light_lux, co2_ppm, soil_moisture
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    greenhouseId, airTemperature, airHumidity, airTemperature, airHumidity,
+                    soilTemperature, soilHumidity, phValue, lightLux, co2Ppm, soilHumidity);
+            return;
+        }
+        jdbcTemplate.update("""
+                UPDATE telemetry_snapshot
+                SET temperature = ?,
+                    humidity = ?,
+                    air_temperature = ?,
+                    air_humidity = ?,
+                    soil_temperature = ?,
+                    soil_humidity = ?,
+                    ph_value = ?,
+                    light_lux = ?,
+                    co2_ppm = ?,
+                    soil_moisture = ?,
+                    collected_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                airTemperature, airHumidity, airTemperature, airHumidity,
+                soilTemperature, soilHumidity, phValue, lightLux, co2Ppm, soilHumidity, latestId);
+    }
+
+    private Map<String, Object> latestTelemetry(Long greenhouseId) {
+        return jdbcTemplate.queryForList("""
+                SELECT soil_temperature, soil_humidity, ph_value, co2_ppm
+                FROM telemetry_snapshot
+                WHERE greenhouse_id = ?
+                ORDER BY collected_at DESC, id DESC
+                LIMIT 1
+                """, greenhouseId).stream().findFirst().orElse(Map.of());
     }
 
     private Long resolveGreenhouseId(String deviceId) {
@@ -166,15 +217,6 @@ public class HuaweiIotIngestionService {
         }
     }
 
-    private GeneratedTelemetry generateMissingTelemetry(Long greenhouseId, double airTemperature, double airHumidity, int lightLux) {
-        double phase = (System.currentTimeMillis() / 60000.0) + greenhouseId * 0.73;
-        double soilTemperature = clamp(airTemperature - 1.8 + Math.sin(phase) * 0.45, 16.0, 24.0);
-        double soilHumidity = clamp(62.5 + Math.cos(phase / 1.7) * 3.5 + (airHumidity - 75.0) * 0.08, 58.0, 70.0);
-        double phValue = clamp(6.7 + Math.sin(phase / 2.3) * 0.12, 6.45, 6.95);
-        int co2Ppm = (int) Math.round(clamp(780 + Math.cos(phase / 1.3) * 45 + (lightLux - 4200) * 0.01, 680, 900));
-        return new GeneratedTelemetry(round2(soilTemperature), round2(soilHumidity), round2(phValue), co2Ppm);
-    }
-
     private String firstText(JsonNode node, String... names) {
         if (node == null || node.isMissingNode() || node.isNull()) {
             return null;
@@ -221,19 +263,25 @@ public class HuaweiIotIngestionService {
         return (int) Math.round(raw);
     }
 
-    private double clamp(double value, double min, double max) {
-        return Math.max(min, Math.min(max, value));
+    private double valueOrLatest(Double current, Map<String, Object> latest, String latestKey, double fallback) {
+        if (current != null) {
+            return current;
+        }
+        Object value = latest.get(latestKey);
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (value != null) {
+            try {
+                return Double.parseDouble(String.valueOf(value));
+            } catch (NumberFormatException ignored) {
+                return fallback;
+            }
+        }
+        return fallback;
     }
 
     private double round2(double value) {
         return Math.round(value * 100.0) / 100.0;
-    }
-
-    private record GeneratedTelemetry(
-            double soilTemperature,
-            double soilHumidity,
-            double phValue,
-            int co2Ppm
-    ) {
     }
 }

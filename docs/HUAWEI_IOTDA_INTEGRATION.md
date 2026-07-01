@@ -81,16 +81,22 @@ $env:HUAWEI_IOT_DEVICE_GREENHOUSE_MAP="deviceA:1,deviceB:2,deviceC:3"
 | `LampST` | 设备状态 | `ON` 为运行，其他为停止 |
 | `Fengd` | 风机状态 | 大于 0 为运行，否则停止 |
 
-当前硬件没有土壤温度、土壤湿度、pH 和 CO2 传感器，后端会生成合理模拟值：
+当前硬件没有土壤温度、土壤湿度、pH 和 CO2 传感器时，后端不会再生成随机模拟值，而是按以下顺序处理：
 
-| 系统字段 | 生成范围 |
+```text
+1. 华为云 reported/data 中如果有真实字段，优先使用真实字段
+2. 如果华为云没有该字段，沿用该大棚上一条遥测记录中的值
+3. 如果数据库中也没有历史值，才使用固定初始值
+```
+
+| 系统字段 | 支持的华为云字段 | 固定初始值 |
 | --- | --- |
-| `soil_temperature` | 空气温度略低，限制在 16-24 摄氏度 |
-| `soil_humidity` | 58%-70% |
-| `ph_value` | 6.45-6.95 |
-| `co2_ppm` | 680-900 ppm |
+| `soil_temperature` | `SoilTemp` / `soilTemperature` / `soil_temperature` | 20.0 |
+| `soil_humidity` | `SoilHumi` / `soilHumidity` / `soil_humidity` / `soil_moisture` | 60.0 |
+| `ph_value` | `PH` / `Ph` / `pH` / `ph` / `phValue` / `ph_value` | 6.70 |
+| `co2_ppm` | `CO2` / `co2` / `co2Ppm` / `co2_ppm` | 760 |
 
-这些模拟值会随时间轻微波动，便于前端趋势图展示。后续接入真实传感器后，只需要在后端字段映射中改为读取真实字段即可。
+华为云拉到的新数据会覆盖该大棚当前最新一条 `telemetry_snapshot`，不会持续追加原来为演示生成的模拟记录。
 
 ## 本地测试命令
 
