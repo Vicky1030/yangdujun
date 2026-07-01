@@ -179,6 +179,7 @@ onMounted(async () => {
 .assistant-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(360px, .75fr);
+  align-items: start;
   gap: 18px;
 }
 .panel-head h3,
@@ -199,11 +200,18 @@ onMounted(async () => {
   display: grid;
   gap: 16px;
 }
+.chat-panel {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: min(720px, calc(100vh - 230px));
+  min-height: 540px;
+}
+.diagnosis-panel {
+  align-self: start;
+}
 .messages {
   display: grid;
   align-content: start;
-  min-height: 360px;
-  max-height: 520px;
+  min-height: 0;
   overflow: auto;
   gap: 12px;
   padding: 8px;
@@ -258,7 +266,9 @@ onMounted(async () => {
 .result-card {
   display: grid;
   gap: 12px;
+  max-height: min(420px, calc(100vh - 500px));
   padding: 14px;
+  overflow: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: rgba(255,255,255,.76);
@@ -291,6 +301,12 @@ onMounted(async () => {
 @media (max-width: 1080px) {
   .assistant-grid {
     grid-template-columns: 1fr;
+  }
+  .chat-panel {
+    height: min(680px, calc(100vh - 180px));
+  }
+  .result-card {
+    max-height: 360px;
   }
 }
 </style>
