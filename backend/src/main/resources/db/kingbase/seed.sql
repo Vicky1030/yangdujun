@@ -148,8 +148,36 @@ INSERT INTO alert_rule(rule_code, rule_name, metric_key, operator, threshold_val
 SELECT 'CO2_HIGH_A01', 'CO2 浓度偏高', 'co2_ppm', 'GT', 1200.00, 5, 'CRITICAL', 'CO2 浓度过高时提醒通风'
 WHERE NOT EXISTS (SELECT 1 FROM alert_rule WHERE rule_code = 'CO2_HIGH_A01');
 
-UPDATE alert_rule SET rule_name = '湿度持续偏高', description = '连续多分钟超过湿度上限时触发' WHERE rule_code = 'HUMIDITY_HIGH_A01';
+UPDATE alert_rule
+SET rule_name = '空气湿度偏高',
+    metric_key = 'air_humidity',
+    operator = 'GT',
+    threshold_value = 92.00,
+    level = 'WARNING',
+    description = '空气湿度过高可能增加病害风险',
+    updated_at = CURRENT_TIMESTAMP
+WHERE rule_code = 'HUMIDITY_HIGH_A01';
 UPDATE alert_rule SET rule_name = 'CO2 浓度偏高', description = 'CO2 浓度过高时提醒通风' WHERE rule_code = 'CO2_HIGH_A01';
+UPDATE alert_rule SET deleted = TRUE, deleted_at = CURRENT_TIMESTAMP WHERE rule_code = 'AIR_HUMIDITY_HIGH';
+
+INSERT INTO alert_rule(rule_code, rule_name, metric_key, operator, threshold_value, duration_minutes, level, description)
+SELECT code, name, metric, op, threshold, 1, level, description
+FROM (VALUES
+  ('AIR_TEMP_LOW', '空气温度偏低', 'air_temperature', 'LT', 16.00, 'WARNING', '空气温度低于羊肚菌适宜范围'),
+  ('AIR_TEMP_HIGH', '空气温度偏高', 'air_temperature', 'GT', 24.00, 'WARNING', '空气温度高于羊肚菌适宜范围'),
+  ('AIR_HUMIDITY_LOW', '空气湿度偏低', 'air_humidity', 'LT', 70.00, 'WARNING', '空气湿度低于羊肚菌适宜范围'),
+  ('SOIL_TEMP_LOW', '土壤温度偏低', 'soil_temperature', 'LT', 16.00, 'WARNING', '土壤温度低于羊肚菌适宜范围'),
+  ('SOIL_TEMP_HIGH', '土壤温度偏高', 'soil_temperature', 'GT', 24.00, 'WARNING', '土壤温度高于羊肚菌适宜范围'),
+  ('SOIL_HUMIDITY_LOW', '土壤湿度偏低', 'soil_humidity', 'LT', 58.00, 'WARNING', '土壤湿度偏低，需关注补水'),
+  ('SOIL_HUMIDITY_HIGH', '土壤湿度偏高', 'soil_humidity', 'GT', 72.00, 'WARNING', '土壤湿度偏高，需关注通风和积水'),
+  ('PH_LOW', 'pH 值偏低', 'ph_value', 'LT', 6.30, 'WARNING', 'pH 值偏酸，建议复核基质'),
+  ('PH_HIGH', 'pH 值偏高', 'ph_value', 'GT', 7.10, 'WARNING', 'pH 值偏碱，建议复核基质'),
+  ('CO2_LOW', 'CO2 浓度偏低', 'co2_ppm', 'LT', 450.00, 'INFO', 'CO2 浓度偏低，建议关注通风策略'),
+  ('CO2_HIGH', 'CO2 浓度偏高', 'co2_ppm', 'GT', 1000.00, 'CRITICAL', 'CO2 浓度偏高，建议及时通风'),
+  ('LIGHT_LOW', '光照强度偏低', 'light_lux', 'LT', 2000.00, 'INFO', '光照强度偏低，建议检查补光策略'),
+  ('LIGHT_HIGH', '光照强度偏高', 'light_lux', 'GT', 6000.00, 'WARNING', '光照强度偏高，建议适当遮光')
+) AS rules(code, name, metric, op, threshold, level, description)
+WHERE NOT EXISTS (SELECT 1 FROM alert_rule WHERE rule_code = rules.code);
 
 INSERT INTO app_user(username, password_hash, role_code, phone, email, display_name, gender, bio, created_by)
 SELECT 'farmer001', '{bcrypt}$2a$10$JkchLJY4LoYghNpK4kJ5Ae2TQwAotSKfih8CV0McdCrw.7HfMS1MC', 'FARMER', '13900000001', 'farmer001@example.com', '示范农户', 'MALE', '负责 A01 大棚日常巡检和出菇期管理', 'system'

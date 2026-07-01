@@ -14,15 +14,18 @@ import java.util.Map;
 @Service
 public class HuaweiIotIngestionService {
     private final JdbcTemplate jdbcTemplate;
+    private final TelemetryAlertService telemetryAlertService;
     private final String defaultDeviceId;
     private final String deviceGreenhouseMap;
 
     public HuaweiIotIngestionService(
             JdbcTemplate jdbcTemplate,
+            TelemetryAlertService telemetryAlertService,
             @Value("${greenhouse.iot.huawei.default-device-id:}") String defaultDeviceId,
             @Value("${greenhouse.iot.huawei.device-greenhouse-map:}") String deviceGreenhouseMap
     ) {
         this.jdbcTemplate = jdbcTemplate;
+        this.telemetryAlertService = telemetryAlertService;
         this.defaultDeviceId = defaultDeviceId;
         this.deviceGreenhouseMap = deviceGreenhouseMap;
     }
@@ -93,6 +96,7 @@ public class HuaweiIotIngestionService {
         result.put("ph_value", generated.phValue());
         result.put("co2_ppm", generated.co2Ppm());
         result.put("light_lux", lightLux);
+        telemetryAlertService.evaluate(greenhouseId, result);
         return result;
     }
 
