@@ -59,10 +59,26 @@
       </div>
 
       <div class="action-grid">
-        <button type="button" @click="$router.push('/devices')">设备管理</button>
-        <button type="button" @click="$router.push('/alerts')">告警处理</button>
-        <button type="button" @click="$router.push('/analytics')">数据分析</button>
-        <button type="button" @click="$router.push('/traceability')">批次溯源</button>
+        <button type="button" @click="$router.push('/devices')">
+          <span>设备管理</span>
+          <strong>{{ deviceCount }}</strong>
+          <small>台设备</small>
+        </button>
+        <button type="button" @click="$router.push('/alerts')">
+          <span>告警处理</span>
+          <strong>{{ unresolvedAlertCount }}</strong>
+          <small>条待处理</small>
+        </button>
+        <button type="button" @click="$router.push('/analytics')">
+          <span>数据分析</span>
+          <strong>{{ telemetryMetricCount }}</strong>
+          <small>项指标</small>
+        </button>
+        <button type="button" @click="$router.push('/traceability')">
+          <span>批次溯源</span>
+          <strong>{{ batchCount }}</strong>
+          <small>个批次</small>
+        </button>
       </div>
 
       <div class="split-grid">
@@ -153,6 +169,10 @@ const displayName = computed(() => session.profile?.username || '农户')
 const isEmptyFarmer = computed(() => !overview.value.greenhouses.length)
 const telemetry = computed(() => overview.value.currentTelemetry || {})
 const selectedGreenhouse = computed(() => overview.value.greenhouses.find(item => item.id === greenhouseId.value))
+const deviceCount = computed(() => overview.value.devices?.length || 0)
+const unresolvedAlertCount = computed(() => overview.value.productionSummary?.unresolvedAlertCount ?? overview.value.activeAlerts?.length ?? 0)
+const batchCount = computed(() => overview.value.productionSummary?.batchCount || 0)
+const telemetryMetricCount = computed(() => 7)
 
 const statusText = status => ({ RUNNING: '运行中', STOPPED: '已停止', MAINTENANCE: '维护中' }[status] || status)
 const deviceTag = status => status === 'RUNNING' ? 'success' : status === 'MAINTENANCE' ? 'warning' : 'info'
@@ -274,9 +294,25 @@ onMounted(load)
   border-radius: var(--radius);
   background: rgba(255,255,255,.8);
   color: var(--ink);
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.action-grid button span {
+  color: var(--ink);
   font-size: 17px;
   font-weight: 900;
-  cursor: pointer;
+}
+.action-grid button strong {
+  color: var(--brand-strong);
+  font-size: 30px;
+  line-height: 1;
+}
+.action-grid button small {
+  color: var(--muted);
+  font-size: 13px;
 }
 .task-list,
 .alert-list { display: grid; gap: 12px; }
