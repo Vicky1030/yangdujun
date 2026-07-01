@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.morel.greenhouse.application.dto.AiChatRequest;
 import com.morel.greenhouse.application.dto.AiDiagnosisRequest;
+import com.morel.greenhouse.application.dto.AiDirectDownlinkRequest;
 import com.morel.greenhouse.domain.telemetry.TelemetrySnapshot;
 import com.morel.greenhouse.infrastructure.ai.AiServiceClient;
 import com.morel.greenhouse.shared.exception.BusinessException;
@@ -115,6 +116,29 @@ public class AiAssistantService {
                 SET status = 'DOWNLINKED', downlinked_by = ?, downlinked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """, currentUser.id(), suggestionId);
+    }
+
+    @Transactional
+    public void directDownlinkSuggestion(AiDirectDownlinkRequest request, CurrentUser currentUser) {
+        if (!currentUser.admin()) {
+            throw new BusinessException(403, "只有管理员可以下发 AI 建议");
+        }
+        Long farmerId = ownerOfGreenhouse(request.greenhouseId());
+        if (farmerId == null) {
+            throw new BusinessException(400, "当前大棚没有绑定农户，无法下发 AI 建议");
+        }
+        String riskLevel = request.riskLevel() == null || request.riskLevel().isBlank()
+                ? "LOW"
+                : request.riskLevel().trim().toUpperCase();
+        String title = request.title().trim();
+        String content = request.content().trim();
+        jdbcTemplate.update("""
+                INSERT INTO ai_suggestion(farmer_user_id, greenhouse_id, title, content, risk_level, status, downlinked_by, downlinked_at)
+                VALUES (?, ?, ?, ?, ?, 'DOWNLINKED', ?, CURRENT_TIMESTAMP)
+                """, farmerId, request.greenhouseId(), title, content, riskLevel, currentUser.id());
+        String message = "【AI生成建议】" + title + "\n" + content
+                + (request.note() == null || request.note().isBlank() ? "" : "\n管理员补充：" + request.note().trim());
+        userAccountService.sendSystemMessage(farmerId, currentUser.id(), currentUser.id(), farmerId, message);
     }
 
     private Map<String, Object> environment(Long greenhouseId, CurrentUser currentUser) {

@@ -15,7 +15,20 @@
       <div class="panel chat-panel">
         <div class="panel-head">
           <h3>对话问答</h3>
-          <span>文本问答专家 · 知识库检索专家</span>
+          <div class="panel-actions">
+            <span>文本问答专家 · 图像识别专家 · 知识库检索专家</span>
+            <el-button
+              v-if="isAdmin"
+              size="small"
+              type="primary"
+              plain
+              :loading="downlinking"
+              :disabled="!canDownlink"
+              @click="downlinkCurrentAnswer"
+            >
+              下发当前建议
+            </el-button>
+          </div>
         </div>
         <div class="messages">
           <article v-for="item in messages" :key="item.id" :class="['message', item.role]">
@@ -50,28 +63,19 @@
       </div>
     </section>
 
-    <section v-if="lastResult?.references?.length" class="panel">
-      <div class="panel-head">
-        <h3>知识库依据</h3>
-        <span>RAG 检索结果</span>
-      </div>
-      <div class="reference-list">
-        <article v-for="ref in lastResult.references" :key="`${ref.source}-${ref.page}-${ref.content}`">
-          <strong>{{ ref.source }} <span v-if="ref.page">第 {{ ref.page }} 页</span></strong>
-          <p>{{ ref.content }}</p>
-        </article>
-      </div>
-    </section>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { chatWithAi, diagnoseImage } from '../services/ai'
+import { chatWithAi, diagnoseImage, directDownlinkAiSuggestion } from '../services/ai'
 import { fetchGreenhouses } from '../services/greenhouse'
+import { useSessionStore } from '../stores/session'
 
+const session = useSessionStore()
 const chatLoading = ref(false)
+const downlinking = ref(false)
 const greenhouses = ref([])
 const greenhouseId = ref(null)
 const question = ref('')
@@ -81,6 +85,9 @@ const imageBase64 = ref('')
 const imagePreview = ref('')
 const imageFilename = ref('')
 const fileInput = ref(null)
+const lastPrompt = ref('')
+const isAdmin = computed(() => session.profile?.role === 'ADMIN')
+const canDownlink = computed(() => isAdmin.value && lastResult.value?.answer && greenhouseId.value)
 
 const sendChat = async () => {
   const hasImage = Boolean(imageBase64.value)
@@ -88,6 +95,7 @@ const sendChat = async () => {
   if (!text && !hasImage) return
   const id = Date.now()
   const userText = text || '请分析这张羊肚菌图片'
+  lastPrompt.value = userText
   const selectedImage = imageBase64.value
   const selectedFilename = imageFilename.value
   messages.value.push({ id, role: 'user', content: userText, image: imagePreview.value })
@@ -109,6 +117,22 @@ const sendChat = async () => {
     messages.value.push({ id: id + 1, role: 'assistant', content: error.message || 'AI 服务暂时不可用，请稍后重试' })
   } finally {
     chatLoading.value = false
+  }
+}
+
+const downlinkCurrentAnswer = async () => {
+  if (!canDownlink.value) return
+  downlinking.value = true
+  try {
+    await directDownlinkAiSuggestion({
+      greenhouseId: greenhouseId.value,
+      title: lastPrompt.value || 'AI 对话建议',
+      content: lastResult.value.answer,
+      riskLevel: lastResult.value.risk_level || 'LOW'
+    })
+    ElMessage.success('AI 建议已下发给该大棚绑定农户')
+  } finally {
+    downlinking.value = false
   }
 }
 
@@ -141,7 +165,12 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.ai-page { gap: 18px; }
+.ai-page {
+  height: calc(100vh - 132px);
+  min-height: 620px;
+  gap: 14px;
+  overflow: hidden;
+}
 .hero,
 .panel-head,
 .composer {
@@ -171,12 +200,18 @@ onMounted(async () => {
   font-size: 13px;
   font-weight: 800;
 }
+.panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
 .chat-panel {
   display: grid;
   gap: 16px;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  height: min(720px, calc(100vh - 230px));
-  min-height: 540px;
+  height: calc(100vh - 270px);
+  min-height: 430px;
 }
 .messages {
   display: grid;
@@ -250,24 +285,17 @@ onMounted(async () => {
   white-space: nowrap;
   color: var(--muted);
 }
-.reference-list {
-  display: grid;
-  gap: 12px;
-}
-.reference-list article {
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: rgba(255,255,255,.72);
-}
-.reference-list p {
-  margin: 6px 0 0;
-  color: var(--muted);
-  line-height: 1.7;
-}
 @media (max-width: 1080px) {
+  .ai-page {
+    height: auto;
+    overflow: visible;
+  }
   .chat-panel {
     height: min(680px, calc(100vh - 180px));
+  }
+  .panel-actions {
+    align-items: flex-start;
+    flex-direction: column;
   }
   .composer {
     align-items: stretch;

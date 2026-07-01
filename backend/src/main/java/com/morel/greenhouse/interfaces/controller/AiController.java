@@ -2,6 +2,7 @@ package com.morel.greenhouse.interfaces.controller;
 
 import com.morel.greenhouse.application.dto.AiChatRequest;
 import com.morel.greenhouse.application.dto.AiDiagnosisRequest;
+import com.morel.greenhouse.application.dto.AiDirectDownlinkRequest;
 import com.morel.greenhouse.application.dto.AiSuggestionDownlinkRequest;
 import com.morel.greenhouse.application.dto.CameraSnapshotRequest;
 import com.morel.greenhouse.application.service.AiAssistantService;
@@ -77,6 +78,15 @@ public class AiController {
             HttpServletRequest servletRequest
     ) {
         aiAssistantService.downlinkSuggestion(id, request.note(), currentUser(servletRequest));
+        return ApiResult.ok();
+    }
+
+    @PostMapping("/suggestions/direct-downlink")
+    public ApiResult<Void> directDownlinkSuggestion(
+            @Valid @RequestBody AiDirectDownlinkRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        aiAssistantService.directDownlinkSuggestion(request, currentUser(servletRequest));
         return ApiResult.ok();
     }
 

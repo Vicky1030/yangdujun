@@ -27,24 +27,29 @@
     <template v-else>
       <div class="metric-grid farmer-metrics">
         <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>空气温度</span>
-          <strong>{{ telemetry.airTemperature ?? '-' }} ℃</strong>
-          <small>{{ temperatureAdvice }}</small>
-        </button>
-        <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>空气湿度</span>
-          <strong>{{ telemetry.airHumidity ?? '-' }} %</strong>
-          <small>{{ humidityAdvice }}</small>
+          <span>空气温湿度</span>
+          <strong>{{ telemetry.airTemperature ?? '-' }} ℃ / {{ telemetry.airHumidity ?? '-' }} %</strong>
+          <small>{{ temperatureAdvice }} · {{ humidityAdvice }}</small>
         </button>
         <button class="metric-card" type="button" @click="$router.push('/analytics')">
           <span>土壤温湿度</span>
           <strong>{{ telemetry.soilTemperature ?? '-' }} ℃ / {{ telemetry.soilHumidity ?? '-' }} %</strong>
-          <small>pH {{ telemetry.phValue ?? '-' }}</small>
+          <small>{{ soilAdvice }}</small>
         </button>
         <button class="metric-card" type="button" @click="$router.push('/analytics')">
-          <span>二氧化碳 / 光照</span>
+          <span>pH 值</span>
+          <strong>{{ telemetry.phValue ?? '-' }}</strong>
+          <small>{{ phAdvice }}</small>
+        </button>
+        <button class="metric-card" type="button" @click="$router.push('/analytics')">
+          <span>二氧化碳</span>
           <strong>{{ telemetry.co2Ppm ?? '-' }} ppm</strong>
-          <small>{{ telemetry.lightLux ?? '-' }} lx · {{ co2Advice }}</small>
+          <small>{{ co2Advice }}</small>
+        </button>
+        <button class="metric-card" type="button" @click="$router.push('/analytics')">
+          <span>光照强度</span>
+          <strong>{{ telemetry.lightLux ?? '-' }} lx</strong>
+          <small>{{ lightAdvice }}</small>
         </button>
         <button class="metric-card" type="button" @click="$router.push('/alerts?status=OPEN')">
           <span>待处理告警</span>
@@ -175,6 +180,30 @@ const co2Advice = computed(() => {
   if (value > 1200) return '浓度偏高，建议通风'
   if (value < 450) return '浓度偏低，关注通风策略'
   return '浓度正常'
+})
+
+const soilAdvice = computed(() => {
+  const humidity = telemetry.value.soilHumidity
+  if (humidity == null) return '等待采集'
+  if (humidity < 55) return '土壤偏干，注意补水'
+  if (humidity > 75) return '土壤偏湿，注意通风'
+  return '土壤水分适宜'
+})
+
+const phAdvice = computed(() => {
+  const value = telemetry.value.phValue
+  if (value == null) return '等待采集'
+  if (value < 6) return '偏酸，建议复核基质'
+  if (value > 7.2) return '偏碱，建议复核基质'
+  return '酸碱度适宜'
+})
+
+const lightAdvice = computed(() => {
+  const value = telemetry.value.lightLux
+  if (value == null) return '等待采集'
+  if (value < 2000) return '光照偏低'
+  if (value > 6000) return '光照偏强'
+  return '光照适宜'
 })
 
 const dailyTasks = computed(() => [

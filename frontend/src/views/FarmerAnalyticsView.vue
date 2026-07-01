@@ -23,7 +23,9 @@
           <h3>环境趋势</h3>
           <p class="muted">高数值指标使用独立坐标轴，温湿度、pH、CO2 和光照不会互相挤压。</p>
         </div>
-        <el-segmented v-model="trendMode" :options="trendModes" @change="renderCharts" />
+        <el-select v-model="trendMode" style="width: 180px" @change="renderCharts">
+          <el-option v-for="item in trendModes" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
       </div>
       <div ref="trendRef" class="chart chart--large"></div>
     </section>
@@ -64,8 +66,13 @@ let resizeHandler = null
 
 const trendModes = [
   { label: '全部指标', value: 'all' },
-  { label: '温湿度/pH', value: 'humidity' },
-  { label: 'CO2/光照', value: 'co2' }
+  { label: '空气温度', value: 'airTemperature' },
+  { label: '空气湿度', value: 'airHumidity' },
+  { label: '土壤温度', value: 'soilTemperature' },
+  { label: '土壤湿度', value: 'soilHumidity' },
+  { label: 'pH 值', value: 'phValue' },
+  { label: '二氧化碳', value: 'co2Ppm' },
+  { label: '光照强度', value: 'lightLux' }
 ]
 
 const labelMap = {
@@ -114,17 +121,15 @@ const unit = name => ({
 
 const trendSeries = trend => {
   const base = [
-    { name: '空气温度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 0, data: trend.map(item => item.airTemperature), color: '#4f75d8' },
-    { name: '空气湿度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 0, data: trend.map(item => item.airHumidity), color: '#67b75b' },
-    { name: '土壤温度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 0, data: trend.map(item => item.soilTemperature), color: '#8b6bd6' },
-    { name: '土壤湿度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 0, data: trend.map(item => item.soilHumidity), color: '#e55b62' },
-    { name: 'pH 值', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 2, data: trend.map(item => item.phValue), color: '#8c6a3d' },
-    { name: '二氧化碳', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 1, data: trend.map(item => item.co2Ppm), color: '#f2a93b' },
-    { name: '光照强度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 3, data: trend.map(item => item.lightLux), color: '#13a8a8' }
+    { mode: 'airTemperature', name: '空气温度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 0, data: trend.map(item => item.airTemperature), color: '#4f75d8' },
+    { mode: 'airHumidity', name: '空气湿度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 0, data: trend.map(item => item.airHumidity), color: '#67b75b' },
+    { mode: 'soilTemperature', name: '土壤温度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 0, data: trend.map(item => item.soilTemperature), color: '#8b6bd6' },
+    { mode: 'soilHumidity', name: '土壤湿度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 0, data: trend.map(item => item.soilHumidity), color: '#e55b62' },
+    { mode: 'phValue', name: 'pH 值', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 2, data: trend.map(item => item.phValue), color: '#8c6a3d' },
+    { mode: 'co2Ppm', name: '二氧化碳', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 1, data: trend.map(item => item.co2Ppm), color: '#f2a93b' },
+    { mode: 'lightLux', name: '光照强度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 3, data: trend.map(item => item.lightLux), color: '#13a8a8' }
   ]
-  if (trendMode.value === 'humidity') return base.filter(item => ['空气温度', '空气湿度', '土壤温度', '土壤湿度', 'pH 值'].includes(item.name))
-  if (trendMode.value === 'co2') return base.filter(item => ['二氧化碳', '光照强度'].includes(item.name))
-  return base
+  return trendMode.value === 'all' ? base : base.filter(item => item.mode === trendMode.value)
 }
 
 const renderCharts = async () => {
