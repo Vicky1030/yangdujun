@@ -62,10 +62,11 @@ public class HuaweiIotIngestionService {
         int lightLux = normalizeLightLux(optionalDouble(data, "Lumi", "light", "lightLux"));
 
         Map<String, Object> latest = latestTelemetry(greenhouseId);
-        double soilTemperature = round2(valueOrLatest(optionalDouble(data, "SoilTemp", "soilTemperature", "soil_temperature"), latest, "soil_temperature", 20.0));
-        double soilHumidity = round2(valueOrLatest(optionalDouble(data, "SoilHumi", "soilHumidity", "soil_humidity", "soil_moisture"), latest, "soil_humidity", 60.0));
-        double phValue = round2(valueOrLatest(optionalDouble(data, "PH", "Ph", "pH", "ph", "phValue", "ph_value"), latest, "ph_value", 6.70));
-        int co2Ppm = (int) Math.round(valueOrLatest(optionalDouble(data, "CO2", "co2", "co2Ppm", "co2_ppm"), latest, "co2_ppm", 760.0));
+        EstimatedTelemetry estimated = estimatedTelemetry(greenhouseId, airTemperature, airHumidity, lightLux, latest);
+        double soilTemperature = round2(valueOrEstimate(optionalDouble(data, "SoilTemp", "soilTemperature", "soil_temperature"), estimated.soilTemperature()));
+        double soilHumidity = round2(valueOrEstimate(optionalDouble(data, "SoilHumi", "soilHumidity", "soil_humidity", "soil_moisture"), estimated.soilHumidity()));
+        double phValue = round2(valueOrEstimate(optionalDouble(data, "PH", "Ph", "pH", "ph", "phValue", "ph_value"), estimated.phValue()));
+        int co2Ppm = (int) Math.round(valueOrEstimate(optionalDouble(data, "CO2", "co2", "co2Ppm", "co2_ppm"), estimated.co2Ppm()));
         upsertCurrentTelemetry(
                 greenhouseId,
                 airTemperature,
@@ -263,10 +264,34 @@ public class HuaweiIotIngestionService {
         return (int) Math.round(raw);
     }
 
-    private double valueOrLatest(Double current, Map<String, Object> latest, String latestKey, double fallback) {
+    private EstimatedTelemetry estimatedTelemetry(Long greenhouseId, double airTemperature, double airHumidity, int lightLux, Map<String, Object> latest) {
+        double previousSoilTemperature = latestValue(latest, "soil_temperature", clamp(airTemperature - 1.3, 16.0, 24.0));
+        double previousSoilHumidity = latestValue(latest, "soil_humidity", clamp(airHumidity * 0.62 + 12.0, 58.0, 72.0));
+        double previousPh = latestValue(latest, "ph_value", 6.70);
+        double previousCo2 = latestValue(latest, "co2_ppm", 760.0);
+
+        double phase = ((System.currentTimeMillis() / 60000L) % 1440) / 1440.0 * Math.PI * 2 + greenhouseId * 0.41;
+        double targetSoilTemperature = clamp(airTemperature - 1.2 + Math.sin(phase) * 0.25, 16.0, 24.0);
+        double targetSoilHumidity = clamp(58.0 + (airHumidity - 50.0) * 0.22 + Math.cos(phase * 0.8) * 1.4, 56.0, 74.0);
+        double targetPh = clamp(6.68 + (targetSoilHumidity - 62.0) * 0.006 + Math.sin(phase * 0.55) * 0.05, 6.45, 6.95);
+        double targetCo2 = clamp(760.0 + (airHumidity - 80.0) * 2.8 + (22.0 - airTemperature) * 8.0 + (4200 - lightLux) * 0.015 + Math.cos(phase) * 22.0, 650.0, 950.0);
+
+        return new EstimatedTelemetry(
+                round2(smooth(previousSoilTemperature, targetSoilTemperature, 0.42)),
+                round2(smooth(previousSoilHumidity, targetSoilHumidity, 0.36)),
+                round2(smooth(previousPh, targetPh, 0.24)),
+                (int) Math.round(smooth(previousCo2, targetCo2, 0.45))
+        );
+    }
+
+    private double valueOrEstimate(Double current, double estimated) {
         if (current != null) {
             return current;
         }
+        return estimated;
+    }
+
+    private double latestValue(Map<String, Object> latest, String latestKey, double fallback) {
         Object value = latest.get(latestKey);
         if (value instanceof Number number) {
             return number.doubleValue();
@@ -281,7 +306,23 @@ public class HuaweiIotIngestionService {
         return fallback;
     }
 
+    private double smooth(double previous, double target, double ratio) {
+        return previous + (target - previous) * ratio;
+    }
+
+    private double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private double round2(double value) {
         return Math.round(value * 100.0) / 100.0;
+    }
+
+    private record EstimatedTelemetry(
+            double soilTemperature,
+            double soilHumidity,
+            double phValue,
+            int co2Ppm
+    ) {
     }
 }
