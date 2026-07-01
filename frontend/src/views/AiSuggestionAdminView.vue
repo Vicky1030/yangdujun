@@ -2,9 +2,9 @@
   <div class="page" v-loading="loading">
     <section class="panel hero">
       <div>
-        <p class="eyebrow">AI 诊断建议</p>
+        <p class="eyebrow">自动巡检建议</p>
         <h2 class="section-title">AI 建议中心</h2>
-        <p class="muted">集中查看 AI 从图片诊断和环境分析中生成的风险建议，并下发给对应农户。</p>
+        <p class="muted">摄像头定时抓拍并结合传感器数据自动分析异常，管理员审核后可下发给对应农户或丢弃。</p>
       </div>
       <el-button type="primary" @click="rebuildKnowledge">重建知识库索引</el-button>
     </section>
@@ -23,11 +23,14 @@
         </div>
         <p class="content">{{ item.content }}</p>
         <div class="card-actions">
-          <span>{{ formatTime(item.created_at) }}</span>
-          <el-button v-if="item.status !== 'DOWNLINKED'" type="primary" @click="openDownlink(item)">下发给农户</el-button>
+          <span>抓拍时间：{{ formatTime(item.snapshot_captured_at || item.created_at) }}</span>
+          <div class="action-buttons" v-if="item.status === 'PENDING'">
+            <el-button plain type="danger" @click="discardSuggestion(item)">丢弃分析</el-button>
+            <el-button type="primary" @click="openDownlink(item)">下发给农户</el-button>
+          </div>
         </div>
       </article>
-      <el-empty v-if="!suggestions.length" description="暂无 AI 建议" />
+      <el-empty v-if="!suggestions.length" description="暂无摄像头自动巡检建议" />
     </section>
 
     <el-dialog v-model="dialogVisible" title="下发 AI 建议" width="560px">
@@ -43,8 +46,8 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { downlinkAiSuggestion, fetchAiSuggestions, rebuildAiKnowledge } from '../services/ai'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { discardAiSuggestion, downlinkAiSuggestion, fetchAiSuggestions, rebuildAiKnowledge } from '../services/ai'
 
 const loading = ref(false)
 const suggestions = ref([])
@@ -54,7 +57,7 @@ const downlinkNote = ref('')
 
 const riskText = value => ({ HIGH: '高风险', MEDIUM: '中风险', LOW: '低风险' }[value] || value || '未知')
 const riskType = value => ({ HIGH: 'danger', MEDIUM: 'warning', LOW: 'success' }[value] || 'info')
-const statusText = value => ({ PENDING: '待下发', DOWNLINKED: '已下发' }[value] || value || '未知')
+const statusText = value => ({ PENDING: '待审核', DOWNLINKED: '已下发', DISCARDED: '已丢弃' }[value] || value || '未知')
 const formatTime = value => value ? new Date(value).toLocaleString('zh-CN') : '-'
 
 const loadSuggestions = async () => {
@@ -87,6 +90,13 @@ const submitDownlink = async () => {
   await downlinkAiSuggestion(current.value.id, { note: downlinkNote.value })
   ElMessage.success('AI 建议已下发给农户')
   dialogVisible.value = false
+  await loadSuggestions()
+}
+
+const discardSuggestion = async item => {
+  await ElMessageBox.confirm(`确认丢弃“${item.title}”？丢弃后不会下发给农户。`, '丢弃 AI 分析', { type: 'warning' })
+  await discardAiSuggestion(item.id, { note: '' })
+  ElMessage.success('AI 分析已丢弃')
   await loadSuggestions()
 }
 
@@ -136,5 +146,9 @@ onMounted(loadSuggestions)
 .tags {
   display: flex;
   gap: 8px;
+}
+.action-buttons {
+  display: flex;
+  gap: 10px;
 }
 </style>

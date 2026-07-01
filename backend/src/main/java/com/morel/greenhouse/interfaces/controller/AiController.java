@@ -81,6 +81,16 @@ public class AiController {
         return ApiResult.ok();
     }
 
+    @PostMapping("/suggestions/{id}/discard")
+    public ApiResult<Void> discardSuggestion(
+            @PathVariable Long id,
+            @RequestBody AiSuggestionDownlinkRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        aiAssistantService.discardSuggestion(id, request.note(), currentUser(servletRequest));
+        return ApiResult.ok();
+    }
+
     @PostMapping("/suggestions/direct-downlink")
     public ApiResult<Void> directDownlinkSuggestion(
             @Valid @RequestBody AiDirectDownlinkRequest request,

@@ -140,11 +140,12 @@ public class CameraSnapshotAiService {
             return;
         }
         jdbcTemplate.update("""
-                INSERT INTO ai_suggestion(farmer_user_id, greenhouse_id, title, content, risk_level)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO ai_suggestion(farmer_user_id, greenhouse_id, snapshot_id, title, content, risk_level, source_type)
+                VALUES (?, ?, ?, ?, ?, ?, 'CAMERA_AUTO')
                 """,
                 longValue(row.get("owner_user_id")),
                 longValue(row.get("greenhouse_id")),
+                longValue(row.get("id")),
                 "摄像头抓拍 AI 风险预警",
                 stringValue(result.get("answer")),
                 riskLevel.toUpperCase()

@@ -424,6 +424,8 @@ CREATE TABLE IF NOT EXISTS ai_suggestion (
   content TEXT NOT NULL,
   risk_level VARCHAR(32) NOT NULL DEFAULT 'LOW',
   status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+  source_type VARCHAR(32) NOT NULL DEFAULT 'MANUAL',
+  snapshot_id BIGINT,
   downlinked_by BIGINT REFERENCES app_user(id),
   downlinked_at TIMESTAMP,
   deleted BOOLEAN NOT NULL DEFAULT FALSE,
@@ -535,6 +537,8 @@ ALTER TABLE telemetry_snapshot ADD COLUMN IF NOT EXISTS air_humidity NUMERIC(6,2
 ALTER TABLE telemetry_snapshot ADD COLUMN IF NOT EXISTS soil_temperature NUMERIC(6,2) NOT NULL DEFAULT 0;
 ALTER TABLE telemetry_snapshot ADD COLUMN IF NOT EXISTS soil_humidity NUMERIC(6,2) NOT NULL DEFAULT 0;
 ALTER TABLE telemetry_snapshot ADD COLUMN IF NOT EXISTS ph_value NUMERIC(4,2) NOT NULL DEFAULT 6.80;
+ALTER TABLE ai_suggestion ADD COLUMN IF NOT EXISTS source_type VARCHAR(32) NOT NULL DEFAULT 'MANUAL';
+ALTER TABLE ai_suggestion ADD COLUMN IF NOT EXISTS snapshot_id BIGINT;
 
 UPDATE telemetry_snapshot
 SET air_temperature = CASE WHEN air_temperature = 0 THEN temperature ELSE air_temperature END,
@@ -578,6 +582,7 @@ CREATE INDEX IF NOT EXISTS idx_ai_conversation_user_time ON ai_conversation(user
 CREATE INDEX IF NOT EXISTS idx_ai_message_conversation_time ON ai_message(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_ai_suggestion_status_time ON ai_suggestion(status, created_at DESC, deleted);
 CREATE INDEX IF NOT EXISTS idx_ai_suggestion_farmer_time ON ai_suggestion(farmer_user_id, created_at DESC, deleted);
+CREATE INDEX IF NOT EXISTS idx_ai_suggestion_source_time ON ai_suggestion(source_type, status, created_at DESC, deleted);
 CREATE INDEX IF NOT EXISTS idx_camera_snapshot_ai_status ON greenhouse_camera_snapshot(ai_status, captured_at, deleted);
 CREATE INDEX IF NOT EXISTS idx_camera_snapshot_greenhouse_time ON greenhouse_camera_snapshot(greenhouse_id, captured_at DESC, deleted);
 

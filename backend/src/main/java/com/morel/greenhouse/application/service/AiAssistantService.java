@@ -86,11 +86,14 @@ public class AiAssistantService {
             throw new BusinessException(403, "只有管理员可以查看 AI 建议");
         }
         return jdbcTemplate.queryForList("""
-                SELECT s.*, u.username AS farmer_username, g.name AS greenhouse_name
+                SELECT s.*, u.username AS farmer_username, g.name AS greenhouse_name,
+                       cs.captured_at AS snapshot_captured_at, cs.ai_status AS snapshot_ai_status
                 FROM ai_suggestion s
                 LEFT JOIN app_user u ON u.id = s.farmer_user_id
                 LEFT JOIN greenhouse g ON g.id = s.greenhouse_id
+                LEFT JOIN greenhouse_camera_snapshot cs ON cs.id = s.snapshot_id
                 WHERE s.deleted = FALSE
+                  AND s.source_type = 'CAMERA_AUTO'
                 ORDER BY s.created_at DESC
                 """);
     }
@@ -103,7 +106,7 @@ public class AiAssistantService {
         Map<String, Object> suggestion = jdbcTemplate.queryForList("""
                 SELECT *
                 FROM ai_suggestion
-                WHERE id = ? AND deleted = FALSE
+                WHERE id = ? AND deleted = FALSE AND source_type = 'CAMERA_AUTO'
                 """, suggestionId).stream().findFirst().orElseThrow(() -> new BusinessException(404, "AI 建议不存在"));
         Long farmerId = longValue(suggestion.get("farmer_user_id"));
         if (farmerId == null) {
@@ -111,12 +114,30 @@ public class AiAssistantService {
         }
         String content = "【AI生成建议】" + suggestion.get("title") + "\n" + suggestion.get("content")
                 + (note == null || note.isBlank() ? "" : "\n管理员补充：" + note.trim());
-        userAccountService.sendSystemMessage(farmerId, currentUser.id(), currentUser.id(), farmerId, content);
-        jdbcTemplate.update("""
+        int updated = jdbcTemplate.update("""
                 UPDATE ai_suggestion
                 SET status = 'DOWNLINKED', downlinked_by = ?, downlinked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+                WHERE id = ? AND deleted = FALSE AND source_type = 'CAMERA_AUTO' AND status = 'PENDING'
                 """, currentUser.id(), suggestionId);
+        if (updated == 0) {
+            throw new BusinessException(400, "该 AI 建议当前状态不可下发");
+        }
+        userAccountService.sendSystemMessage(farmerId, currentUser.id(), currentUser.id(), farmerId, content);
+    }
+
+    @Transactional
+    public void discardSuggestion(Long suggestionId, String note, CurrentUser currentUser) {
+        if (!currentUser.admin()) {
+            throw new BusinessException(403, "只有管理员可以丢弃 AI 建议");
+        }
+        int updated = jdbcTemplate.update("""
+                UPDATE ai_suggestion
+                SET status = 'DISCARDED', updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND deleted = FALSE AND source_type = 'CAMERA_AUTO' AND status = 'PENDING'
+                """, suggestionId);
+        if (updated == 0) {
+            throw new BusinessException(400, "该 AI 建议不存在或当前状态不可丢弃");
+        }
     }
 
     @Transactional
@@ -134,8 +155,8 @@ public class AiAssistantService {
         String title = request.title().trim();
         String content = request.content().trim();
         jdbcTemplate.update("""
-                INSERT INTO ai_suggestion(farmer_user_id, greenhouse_id, title, content, risk_level, status, downlinked_by, downlinked_at)
-                VALUES (?, ?, ?, ?, ?, 'DOWNLINKED', ?, CURRENT_TIMESTAMP)
+                INSERT INTO ai_suggestion(farmer_user_id, greenhouse_id, title, content, risk_level, status, source_type, downlinked_by, downlinked_at)
+                VALUES (?, ?, ?, ?, ?, 'DOWNLINKED', 'DIRECT_CHAT', ?, CURRENT_TIMESTAMP)
                 """, farmerId, request.greenhouseId(), title, content, riskLevel, currentUser.id());
         String message = "【AI生成建议】" + title + "\n" + content
                 + (request.note() == null || request.note().isBlank() ? "" : "\n管理员补充：" + request.note().trim());
@@ -214,8 +235,8 @@ public class AiAssistantService {
         }
         Long farmerId = currentUser.admin() ? ownerOfGreenhouse(greenhouseId) : currentUser.id();
         jdbcTemplate.update("""
-                INSERT INTO ai_suggestion(farmer_user_id, greenhouse_id, conversation_id, title, content, risk_level)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO ai_suggestion(farmer_user_id, greenhouse_id, conversation_id, title, content, risk_level, source_type)
+                VALUES (?, ?, ?, ?, ?, ?, 'USER_CHAT')
                 """, farmerId, greenhouseId, conversationId, "羊肚菌图片风险诊断", stringValue(result.get("answer")), riskLevel.toUpperCase());
     }
 
