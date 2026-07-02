@@ -4,7 +4,7 @@
       <div class="panel-head">
         <div>
           <h2 class="section-title">批次溯源</h2>
-          <p class="muted">按时间、批次码和大棚查询生产批次。管理员可以新建批次并确认链路节点、上传图片。</p>
+          <p class="muted">按时间、批次码和大棚查询生产批次，查看关键生产记录与全流程溯源信息。</p>
         </div>
         <el-button v-if="isAdmin" type="primary" @click="openCreateBatch">新建批次</el-button>
       </div>
@@ -22,7 +22,7 @@
           <h3>{{ batch.batch_name }}</h3>
           <p>批次码：{{ batch.batch_no }}</p>
           <p>{{ batch.summary || '暂无说明' }}</p>
-          <div><el-tag>{{ statusText(batch.status) }}</el-tag><small>{{ formatDate(batch.started_at) }} 开始</small></div>
+          <div><el-tag :type="statusTagType(batch.status)">{{ statusText(batch.status) }}</el-tag><small>{{ formatDate(batch.started_at) }} 开始</small></div>
         </article>
         <el-empty v-if="!batches.length" description="暂无批次数据" />
       </div>
@@ -39,8 +39,8 @@
           <el-button v-if="isAdmin" type="primary" @click="openCreateEvent">确认新节点</el-button>
         </div>
         <div class="block-chain">
-          <article v-for="event in detail.events" :key="event.id" class="block-card">
-            <div class="block-index">{{ event.sort_order }}</div>
+          <article v-for="(event, index) in detail.events" :key="event.id" class="block-card">
+            <div class="block-index">{{ index + 1 }}</div>
             <div class="block-body">
               <strong>{{ event.event_title }}</strong>
               <p>{{ event.description }}</p>
@@ -134,6 +134,7 @@ const batchForm = reactive({ greenhouseId: null, batchNo: '', batchName: '', cro
 const eventForm = reactive({ eventCode: '', eventTitle: '', eventStatus: 'DONE', description: '', imageUrl: '' })
 
 const statusText = status => ({ RUNNING: '进行中', DONE: '已完成', CLOSED: '已归档' }[status] || status)
+const statusTagType = status => ({ RUNNING: 'warning', DONE: 'success', CLOSED: 'info' }[status] || 'info')
 const formatTime = value => value ? new Date(value).toLocaleString('zh-CN') : ''
 const formatDate = value => value ? new Date(value).toLocaleDateString('zh-CN') : ''
 const eventImage = event => event.image_url || event.imageUrl || '/greenhouse-bg.svg'
@@ -214,9 +215,29 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 16px;
 }
-.filters { margin-top: 18px; justify-content: flex-start; flex-wrap: wrap; }
+.filters {
+  display: grid;
+  grid-template-columns: 220px 220px 420px 86px;
+  align-items: center;
+  justify-content: start;
+  margin-top: 18px;
+}
 .filters .el-input,
-.filters .el-select { max-width: 220px; }
+.filters .el-select,
+.filters .el-date-editor {
+  width: 100%;
+  height: 40px;
+}
+.filters :deep(.el-input__wrapper),
+.filters :deep(.el-select__wrapper),
+.filters :deep(.el-date-editor.el-input__wrapper) {
+  min-height: 40px;
+  height: 40px;
+}
+.filters :deep(.el-button) {
+  width: 86px;
+  height: 40px;
+}
 .batch-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, 320px);

@@ -12,7 +12,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,15 +24,26 @@ public class GreenhouseAnalyticsService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public GreenhouseAnalytics analytics(Long greenhouseId, CurrentUser currentUser) {
+    public GreenhouseAnalytics analytics(Long greenhouseId, Integer rangeHours, CurrentUser currentUser) {
         Long resolvedGreenhouseId = resolveGreenhouseId(greenhouseId, currentUser);
+        int resolvedRangeHours = normalizeRangeHours(rangeHours);
         return new GreenhouseAnalytics(
-                telemetryTrend(resolvedGreenhouseId),
+                telemetryTrend(resolvedGreenhouseId, resolvedRangeHours),
                 completedGroupedValues("greenhouse_device", "status", "greenhouse_id", resolvedGreenhouseId, List.of("RUNNING", "STOPPED", "MAINTENANCE")),
                 completedGroupedValues("greenhouse_alert", "level", "greenhouse_id", resolvedGreenhouseId, List.of("INFO", "WARNING", "CRITICAL")),
                 completedGroupedValues("greenhouse_alert", "status", "greenhouse_id", resolvedGreenhouseId, List.of("OPEN", "ACKNOWLEDGED", "RESOLVED")),
                 greenhouseAreas(currentUser)
         );
+    }
+
+    private int normalizeRangeHours(Integer rangeHours) {
+        if (rangeHours == null) {
+            return 24;
+        }
+        return switch (rangeHours) {
+            case 24, 72, 168, 336 -> rangeHours;
+            default -> 24;
+        };
     }
 
     private Long resolveGreenhouseId(Long greenhouseId, CurrentUser currentUser) {
@@ -71,19 +81,23 @@ public class GreenhouseAnalyticsService {
         return rows.get(0);
     }
 
-    private List<TelemetryTrendPoint> telemetryTrend(Long greenhouseId) {
+    private List<TelemetryTrendPoint> telemetryTrend(Long greenhouseId, int rangeHours) {
         List<TelemetryTrendPoint> rows = jdbcTemplate.query("""
                 SELECT collected_at, air_temperature, air_humidity, soil_temperature, soil_humidity, ph_value, co2_ppm, light_lux
-                FROM telemetry_snapshot
-                WHERE greenhouse_id = ?
-                ORDER BY collected_at DESC
-                LIMIT 24
-                """, this::mapTelemetryPoint, greenhouseId);
+                FROM (
+                    SELECT collected_at, air_temperature, air_humidity, soil_temperature, soil_humidity, ph_value, co2_ppm, light_lux
+                    FROM telemetry_snapshot
+                    WHERE greenhouse_id = ?
+                      AND collected_at >= CURRENT_TIMESTAMP - (? * INTERVAL '1 hour')
+                    ORDER BY collected_at DESC
+                    LIMIT 240
+                ) recent
+                ORDER BY collected_at
+                """, this::mapTelemetryPoint, greenhouseId, rangeHours);
         if (rows.size() >= 6 && hasMeaningfulVariation(rows)) {
-            Collections.reverse(rows);
             return rows;
         }
-        return syntheticTrend(greenhouseId);
+        return syntheticTrend(greenhouseId, rangeHours);
     }
 
     private boolean hasMeaningfulVariation(List<TelemetryTrendPoint> rows) {
@@ -95,7 +109,7 @@ public class GreenhouseAnalyticsService {
         return distinct >= 3;
     }
 
-    private List<TelemetryTrendPoint> syntheticTrend(Long greenhouseId) {
+    private List<TelemetryTrendPoint> syntheticTrend(Long greenhouseId, int rangeHours) {
         List<TelemetryTrendPoint> latest = jdbcTemplate.query("""
                 SELECT collected_at, air_temperature, air_humidity, soil_temperature, soil_humidity, ph_value, co2_ppm, light_lux
                 FROM telemetry_snapshot
@@ -109,11 +123,14 @@ public class GreenhouseAnalyticsService {
         TelemetryTrendPoint base = latest.get(0);
         List<TelemetryTrendPoint> points = new ArrayList<>();
         LocalDateTime end = base.collectedAt();
-        for (int i = 23; i >= 0; i--) {
-            double wave = Math.sin((23 - i) / 3.0);
-            double smallWave = Math.cos((23 - i) / 4.0);
+        int pointCount = 24;
+        double stepHours = rangeHours / (double) (pointCount - 1);
+        for (int i = pointCount - 1; i >= 0; i--) {
+            int position = pointCount - 1 - i;
+            double wave = Math.sin(position / 3.0);
+            double smallWave = Math.cos(position / 4.0);
             points.add(new TelemetryTrendPoint(
-                    end.minusHours(i),
+                    end.minusMinutes(Math.round(i * stepHours * 60)),
                     round(base.airTemperature() + wave * 1.2),
                     round(base.airHumidity() + smallWave * 3.0),
                     round(base.soilTemperature() + wave * 0.8),

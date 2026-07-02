@@ -5,6 +5,7 @@ import com.morel.greenhouse.application.dto.CreateBatchEventRequest;
 import com.morel.greenhouse.application.dto.CreateBatchRequest;
 import com.morel.greenhouse.application.dto.CreateDeviceRequest;
 import com.morel.greenhouse.application.dto.CreateGreenhouseRequest;
+import com.morel.greenhouse.application.dto.DeviceCommandRequest;
 import com.morel.greenhouse.application.dto.HandleAlertRequest;
 import com.morel.greenhouse.application.dto.UpdateDeviceRequest;
 import com.morel.greenhouse.application.dto.UpdateGreenhouseRequest;
@@ -26,10 +27,12 @@ public class GreenhouseManagementService {
 
     private final JdbcTemplate jdbcTemplate;
     private final UserAccountService userAccountService;
+    private final DeviceCommandService deviceCommandService;
 
-    public GreenhouseManagementService(JdbcTemplate jdbcTemplate, UserAccountService userAccountService) {
+    public GreenhouseManagementService(JdbcTemplate jdbcTemplate, UserAccountService userAccountService, DeviceCommandService deviceCommandService) {
         this.jdbcTemplate = jdbcTemplate;
         this.userAccountService = userAccountService;
+        this.deviceCommandService = deviceCommandService;
     }
 
     @Transactional
@@ -236,6 +239,13 @@ public class GreenhouseManagementService {
         if ("RESOLVED".equals(nextStatus) && note.isBlank()) {
             throw new BusinessException(400, "解决告警时需要填写处理意见");
         }
+        if (request.deviceId() != null) {
+            if (request.command() == null || request.command().isBlank()) {
+                throw new BusinessException(400, "请选择调控动作");
+            }
+            ensureAlertDevice(alertId, request.deviceId());
+            deviceCommandService.execute(new DeviceCommandRequest(request.deviceId(), request.command().trim().toUpperCase(), note), currentUser);
+        }
         String handler = request.handler() == null || request.handler().isBlank() ? currentUser.username() : request.handler().trim();
         jdbcTemplate.update("""
                 UPDATE greenhouse_alert
@@ -254,6 +264,21 @@ public class GreenhouseManagementService {
         }
     }
 
+    private void ensureAlertDevice(Long alertId, Long deviceId) {
+        Integer allowed = jdbcTemplate.queryForObject("""
+                SELECT COUNT(1)
+                FROM greenhouse_alert a
+                JOIN greenhouse_device d ON d.greenhouse_id = a.greenhouse_id
+                WHERE a.id = ?
+                  AND d.id = ?
+                  AND a.deleted = FALSE
+                  AND d.deleted = FALSE
+                """, Integer.class, alertId, deviceId);
+        if (allowed == null || allowed == 0) {
+            throw new BusinessException(403, "只能调控当前告警大棚内的设备");
+        }
+    }
+
     @Transactional
     public void recordAlertCommand(Long alertId, AlertCommandRequest request, CurrentUser operatorUser) {
         ensureAlertExists(alertId);
@@ -268,12 +293,9 @@ public class GreenhouseManagementService {
         jdbcTemplate.update("""
                 UPDATE greenhouse_alert
                 SET status = CASE WHEN status = 'OPEN' THEN 'ACKNOWLEDGED' ELSE status END,
-                    handled_by = ?,
-                    handle_note = ?,
-                    handled_at = COALESCE(handled_at, CURRENT_TIMESTAMP),
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ? AND deleted = FALSE
-                """, operator, request.note(), alertId);
+                """, alertId);
         if (Boolean.TRUE.equals(request.notifyFarmer())) {
             Map<String, Object> alert = alertContext(alertId);
             Long farmerId = alert.get("owner_user_id") == null ? null : Long.valueOf(String.valueOf(alert.get("owner_user_id")));

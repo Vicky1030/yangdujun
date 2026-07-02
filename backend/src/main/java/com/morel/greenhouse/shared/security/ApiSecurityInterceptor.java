@@ -102,7 +102,6 @@ public class ApiSecurityInterceptor implements HandlerInterceptor {
                 || ("DELETE".equals(method) && uri.matches("/api/v1/greenhouses/\\d+"))
                 || ("POST".equals(method) && uri.equals("/api/v1/greenhouses/batches"))
                 || ("POST".equals(method) && uri.matches("/api/v1/greenhouses/batches/\\d+/events"))
-                || ("POST".equals(method) && uri.equals("/api/v1/greenhouses/devices/commands"))
                 || ("POST".equals(method) && uri.matches("/api/v1/greenhouses/alerts/\\d+/command"));
     }
 

@@ -23,33 +23,50 @@ public class DatabaseInitializer implements ApplicationRunner {
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final String adminPassword;
+    private final boolean initializeEnabled;
 
     public DatabaseInitializer(
             DataSource dataSource,
             JdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
-            @Value("${greenhouse.security.admin-default-password}") String adminPassword
+            @Value("${greenhouse.security.admin-default-password}") String adminPassword,
+            @Value("${greenhouse.database.initialize-enabled:true}") boolean initializeEnabled
     ) {
         this.dataSource = dataSource;
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.adminPassword = adminPassword;
+        this.initializeEnabled = initializeEnabled;
     }
 
     @Override
     public void run(ApplicationArguments args) {
+        if (!initializeEnabled) {
+            log.info("Kingbase schema and seed initialization skipped");
+            return;
+        }
         log.info("Initializing Kingbase schema and seed data");
-        ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
-        populator.setSqlScriptEncoding("UTF-8");
-        populator.addScript(new ClassPathResource("db/kingbase/schema.sql"));
-        populator.addScript(new ClassPathResource("db/kingbase/seed.sql"));
-        populator.execute(dataSource);
+        executeScript("schema", "db/kingbase/schema.sql");
+        executeScript("seed", "db/kingbase/seed.sql");
 
+        log.info("Running Kingbase post-initialization migrations");
         migrateDefaultAdmin();
         normalizeLegacyDeviceStatus();
+        normalizeLegacyAlertHandling();
         cleanupDebugAndCorruptedDevices();
         ensureDefaultAvatars();
         ensureUserRoleMappings();
+        log.info("Kingbase schema and seed initialization completed");
+    }
+
+    private void executeScript(String name, String path) {
+        long startedAt = System.currentTimeMillis();
+        log.info("Executing Kingbase {} script: {}", name, path);
+        ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+        populator.setSqlScriptEncoding("UTF-8");
+        populator.addScript(new ClassPathResource(path));
+        populator.execute(dataSource);
+        log.info("Kingbase {} script completed in {} ms", name, System.currentTimeMillis() - startedAt);
     }
 
     private void migrateDefaultAdmin() {
@@ -135,6 +152,25 @@ public class DatabaseInitializer implements ApplicationRunner {
                 """);
         if (updated > 0) {
             log.info("Normalized legacy device status rows: count={}", updated);
+        }
+    }
+
+    private void normalizeLegacyAlertHandling() {
+        int updated = jdbcTemplate.update("""
+                UPDATE greenhouse_alert
+                SET handled_by = NULL,
+                    handle_note = NULL,
+                    handled_at = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE status <> 'RESOLVED'
+                  AND (
+                    handled_by IS NOT NULL
+                    OR handle_note IS NOT NULL
+                    OR handled_at IS NOT NULL
+                  )
+                """);
+        if (updated > 0) {
+            log.info("Cleared legacy handling fields from unresolved alerts: count={}", updated);
         }
     }
 

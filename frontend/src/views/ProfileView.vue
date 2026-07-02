@@ -37,11 +37,14 @@
             <el-input v-model="form.bio" type="textarea" :rows="4" />
           </el-form-item>
         </el-form>
+        <div v-if="!isAdmin" class="save-actions">
+          <el-button class="save-button" type="primary" :loading="saving" @click="save">保存资料</el-button>
+        </div>
       </section>
 
-      <section class="panel settings-card">
+      <section v-if="isAdmin" class="panel settings-card">
         <h3 class="card-title">账号开关</h3>
-        <div v-if="isAdmin" class="setting-row">
+        <div class="setting-row">
           <div>
             <strong>删除授权</strong>
             <p>开启后，其他管理员可以删除此账号。</p>
@@ -51,13 +54,6 @@
             active-text="允许删除"
             inactive-text="不允许删除"
           />
-        </div>
-        <div v-else class="setting-row">
-          <div>
-            <strong>农户账号</strong>
-            <p>大棚绑定和权限由管理员分配。</p>
-          </div>
-          <el-tag type="success">正常</el-tag>
         </div>
         <el-button class="save-button" type="primary" :loading="saving" @click="save">保存资料</el-button>
       </section>
@@ -183,7 +179,7 @@ onMounted(load)
 .profile-head :deep(.el-avatar) { cursor: pointer; border: 1px solid var(--line); background: #fff; }
 .profile-stack { display: grid; gap: 18px; }
 .card-title { margin: 0 0 18px; color: var(--ink); font-size: 20px; }
-.profile-form { max-width: 980px; }
+.profile-form { max-width: 980px; margin: 0 auto; }
 .settings-card { max-width: 980px; }
 .setting-row {
   display: flex;
@@ -200,7 +196,13 @@ onMounted(load)
 .setting-row p { margin: 6px 0 0; color: var(--muted); line-height: 1.6; }
 .setting-row :deep(.el-switch) { flex: 0 0 auto; min-width: 220px; justify-content: flex-end; }
 .setting-row :deep(.el-switch__label) { white-space: nowrap; }
+.save-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
 .save-button { width: 220px; margin-top: 18px; }
+.save-actions .save-button { margin-top: 0; }
 @media (max-width: 760px) {
   .profile-head { align-items: flex-start; }
   .setting-row { flex-direction: column; align-items: stretch; }

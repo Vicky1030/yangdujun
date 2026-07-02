@@ -29,6 +29,22 @@
           <p>{{ cleanText(device.location, '未填写安装位置') }}</p>
           <p v-if="device.remark" class="remark">{{ cleanText(device.remark, '') }}</p>
           <div v-if="!isAdmin" class="device-card__actions">
+            <el-button
+              size="small"
+              :type="device.status === 'RUNNING' ? 'warning' : 'success'"
+              :loading="commandingId === device.id"
+              @click="toggleDevice(device)"
+            >
+              {{ device.status === 'RUNNING' ? '停止' : '启动' }}
+            </el-button>
+            <el-button
+              size="small"
+              :disabled="device.status === 'MAINTENANCE'"
+              :loading="commandingId === device.id"
+              @click="commandDevice(device, 'MAINTENANCE')"
+            >
+              维护
+            </el-button>
             <el-button size="small" @click="openEdit(device)">编辑</el-button>
             <el-button size="small" type="danger" @click="removeDevice(device)">删除</el-button>
           </div>
@@ -68,7 +84,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createDevice, deleteDevice, fetchDevices, fetchGreenhouses, updateDevice } from '../services/greenhouse'
+import { createDevice, deleteDevice, fetchDevices, fetchGreenhouses, sendDeviceCommand, updateDevice } from '../services/greenhouse'
 import { fetchFarmerGreenhouses, fetchUsers } from '../services/user'
 import { useSessionStore } from '../stores/session'
 
@@ -78,6 +94,7 @@ const session = useSessionStore()
 const isAdmin = computed(() => session.profile?.role === 'ADMIN')
 const loading = ref(false)
 const saving = ref(false)
+const commandingId = ref(null)
 const users = ref([])
 const farmerId = ref(route.query.farmerId ? Number(route.query.farmerId) : null)
 const greenhouses = ref([])
@@ -165,6 +182,27 @@ const openEdit = device => {
   deviceDialog.value = true
 }
 
+const toggleDevice = device => {
+  commandDevice(device, device.status === 'RUNNING' ? 'STOP' : 'START')
+}
+
+const commandDevice = async (device, command) => {
+  commandingId.value = device.id
+  try {
+    await sendDeviceCommand({
+      deviceId: device.id,
+      command,
+      value: `${commandText(command)}：${cleanText(device.name, '设备')}`
+    })
+    ElMessage.success(`${cleanText(device.name, '设备')}已${commandText(command)}`)
+    await loadDevices()
+  } finally {
+    commandingId.value = null
+  }
+}
+
+const commandText = command => ({ START: '启动', STOP: '停止', MAINTENANCE: '标记维护' }[command] || '调控')
+
 const submitDevice = async () => {
   if (!deviceForm.greenhouseId || !deviceForm.name || !deviceForm.category) return ElMessage.warning('请补全设备信息')
   saving.value = true
@@ -200,14 +238,21 @@ onMounted(async () => {
 
 <style scoped>
 .panel-head, .head-actions, .dialog-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.head-actions { flex-wrap: wrap; justify-content: flex-end; }
+.head-actions { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.head-actions :deep(.el-select__wrapper),
+.head-actions :deep(.el-button) {
+  min-height: 40px;
+  height: 40px;
+}
 .device-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 18px; }
-.device-card { padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,.82); box-shadow: 0 12px 28px rgba(39, 80, 47, .06); }
+.device-card { min-height: 208px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,.82); box-shadow: 0 12px 28px rgba(39, 80, 47, .06); display: flex; flex-direction: column; }
 .device-card__top, .device-card__actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .device-card h3 { margin: 16px 0 6px; color: var(--ink); font-size: 20px; }
 .device-card p { margin: 0 0 10px; color: var(--muted); }
 .remark { color: #45604b; min-height: 22px; }
-.device-card__actions { justify-content: flex-start; margin-top: 16px; }
+.device-card__actions { justify-content: center; flex-wrap: wrap; margin-top: auto; padding-top: 16px; }
+.device-card__actions :deep(.el-button) { min-width: 62px; font-weight: 700; }
+.device-card__actions :deep(.el-button + .el-button) { margin-left: 0; }
 .device-card__actions :deep(.el-button--danger) { color: #fff; font-weight: 800; background: #e95a5a; border-color: #e95a5a; }
 .dialog-actions { justify-content: flex-end; }
 </style>

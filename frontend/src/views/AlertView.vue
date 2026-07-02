@@ -32,9 +32,9 @@
               <p>{{ cleanText(alert.description, '暂无描述') }}</p>
             </div>
             <div class="alert-actions">
-              <el-button v-if="!isAdmin && alert.status !== 'RESOLVED'" link type="success" @click="openHandle(alert)">处理完成</el-button>
-              <el-button v-if="isAdmin && alert.status !== 'RESOLVED'" link type="warning" @click="openCommand(alert)">下发建议</el-button>
-              <el-button link @click="openDetail(alert)">记录</el-button>
+              <el-button v-if="!isAdmin && alert.status !== 'RESOLVED'" class="action-btn" type="success" size="small" @click="openHandle(alert)">处理</el-button>
+              <el-button v-if="isAdmin && alert.status !== 'RESOLVED'" class="action-btn" type="warning" size="small" @click="openCommand(alert)">下发建议</el-button>
+              <el-button class="action-btn" size="small" @click="openDetail(alert)">记录</el-button>
             </div>
           </div>
           <div class="alert-meta">
@@ -43,17 +43,34 @@
             <span><b>发出告警的大棚</b>{{ cleanText(alert.greenhouseName, '-') }}</span>
             <span><b>大棚位置</b>{{ cleanText(alert.greenhouseLocation, '-') }}</span>
             <span><b>发出告警的设备</b>{{ cleanText(alert.deviceName, '大棚环境监测') }}</span>
-            <span><b>处理人</b>{{ cleanText(alert.handledBy, '-') }}</span>
-            <span><b>处理时间</b>{{ formatTime(alert.handledAt) }}</span>
+            <span><b>处理人</b>{{ displayHandler(alert) }}</span>
+            <span><b>处理时间</b>{{ displayHandledAt(alert) }}</span>
           </div>
         </article>
         <el-empty v-if="!filteredAlerts.length" description="当前没有符合条件的告警" />
       </div>
     </section>
 
-    <el-dialog v-model="handleDialog" title="处理完成" width="560px">
+    <el-dialog v-model="handleDialog" title="处理告警" width="560px">
       <el-form label-position="top">
         <el-form-item label="处理人"><el-input v-model.trim="handleForm.handler" maxlength="64" /></el-form-item>
+        <el-form-item label="调控设备">
+          <el-select v-model="handleForm.deviceId" clearable filterable placeholder="请选择需要调控的设备" style="width: 100%">
+            <el-option
+              v-for="device in handleDevices"
+              :key="device.id"
+              :label="deviceLabel(device)"
+              :value="device.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="调控动作">
+          <el-select v-model="handleForm.command" :disabled="!handleForm.deviceId" placeholder="请选择调控动作" style="width: 100%">
+            <el-option label="启动设备" value="START" />
+            <el-option label="关闭设备" value="STOP" />
+            <el-option label="标记维护" value="MAINTENANCE" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="处理意见">
           <el-input v-model.trim="handleForm.note" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="请填写实际处理结果，提交后会自动同步给管理员。" />
         </el-form-item>
@@ -105,8 +122,9 @@
         <p><span>位置：</span>{{ cleanText(selectedAlert?.greenhouseLocation, '-') }}</p>
         <p><span>设备：</span>{{ cleanText(selectedAlert?.deviceName, '大棚环境监测') }}</p>
         <p><span>状态：</span>{{ statusText(selectedAlert?.status) }}</p>
-        <p><span>处理人：</span>{{ cleanText(selectedAlert?.handledBy, '-') }}</p>
-        <p><span>处理意见：</span>{{ cleanText(selectedAlert?.handleNote, '暂无处理意见') }}</p>
+        <p><span>处理人：</span>{{ displayHandler(selectedAlert) }}</p>
+        <p><span>处理时间：</span>{{ displayHandledAt(selectedAlert) }}</p>
+        <p><span>处理意见：</span>{{ displayHandleNote(selectedAlert) }}</p>
       </div>
     </el-dialog>
   </div>
@@ -133,8 +151,9 @@ const statusFilter = ref(route.query.status || '')
 const greenhouses = ref([])
 const alerts = ref([])
 const selectedAlert = ref(null)
+const handleDevices = ref([])
 const commandDevices = ref([])
-const handleForm = reactive({ status: 'RESOLVED', handler: '', note: '' })
+const handleForm = reactive({ status: 'RESOLVED', handler: '', deviceId: null, command: 'START', note: '' })
 const commandForm = reactive({ deviceId: null, command: 'STOP', note: '', notifyFarmer: true })
 
 const filteredAlerts = computed(() => statusFilter.value ? alerts.value.filter(item => item.status === statusFilter.value) : alerts.value)
@@ -143,6 +162,11 @@ const levelTag = level => level === 'CRITICAL' ? 'danger' : level === 'WARNING' 
 const statusText = status => ({ OPEN: '待处理', ACKNOWLEDGED: '已下发建议', RESOLVED: '农户已解决' }[status] || status || '-')
 const statusTag = status => status === 'RESOLVED' ? 'success' : status === 'ACKNOWLEDGED' ? 'warning' : 'danger'
 const formatTime = value => value ? new Date(value).toLocaleString('zh-CN') : '-'
+const deviceLabel = device => `${cleanText(device.name, '设备')}（${cleanText(device.status, '-')}）`
+const isResolved = alert => alert?.status === 'RESOLVED'
+const displayHandler = alert => isResolved(alert) ? cleanText(alert?.handledBy, '-') : '-'
+const displayHandledAt = alert => isResolved(alert) ? formatTime(alert?.handledAt || alert?.resolvedAt) : '-'
+const displayHandleNote = alert => isResolved(alert) ? cleanText(alert?.handleNote, '暂无处理意见') : '告警尚未由农户完成处理'
 const cleanText = (value, fallback) => {
   if (value == null || String(value).trim() === '') return fallback
   const text = String(value)
@@ -176,9 +200,17 @@ const onFilterChange = async () => {
 }
 
 const defaultHandler = () => session.profile?.username || (isAdmin.value ? '管理员' : '农户')
-const openHandle = row => {
+const openHandle = async row => {
   selectedAlert.value = row
-  Object.assign(handleForm, { status: 'RESOLVED', handler: row.handledBy || defaultHandler(), note: row.handleNote || '' })
+  handleDevices.value = await fetchDevices(row.greenhouseId)
+  const defaultDeviceId = row.deviceId && handleDevices.value.some(device => device.id === row.deviceId) ? row.deviceId : null
+  Object.assign(handleForm, {
+    status: 'RESOLVED',
+    handler: row.handledBy || defaultHandler(),
+    deviceId: defaultDeviceId,
+    command: defaultDeviceId ? defaultCommand(row) : 'START',
+    note: row.handleNote || ''
+  })
   handleDialog.value = true
 }
 const openDetail = row => { selectedAlert.value = row; detailDialog.value = true }
@@ -192,16 +224,31 @@ const openCommand = async row => {
 
 const submitHandle = async () => {
   if (!handleForm.handler) return ElMessage.warning('处理人不能为空')
+  if (handleForm.deviceId && !handleForm.command) return ElMessage.warning('请选择调控动作')
   if (!handleForm.note) return ElMessage.warning('请填写处理意见')
   saving.value = true
   try {
-    await handleAlert(selectedAlert.value.id, handleForm)
+    await handleAlert(selectedAlert.value.id, {
+      status: handleForm.status,
+      handler: handleForm.handler,
+      deviceId: handleForm.deviceId,
+      command: handleForm.deviceId ? handleForm.command : null,
+      note: handleForm.note
+    })
     ElMessage.success('告警已解决，处理结果已同步给管理员')
     handleDialog.value = false
     await loadAlerts()
   } finally {
     saving.value = false
   }
+}
+
+const defaultCommand = alert => {
+  const text = `${alert?.title || ''} ${alert?.description || ''} ${alert?.deviceName || ''}`
+  if (/压力波动|异常|故障|维护|离线/.test(text)) return 'MAINTENANCE'
+  if (/CO2|二氧化碳|通风|风机|湿度高|温度高/.test(text)) return 'START'
+  if (/水泵|灌溉|补水|湿度低|干/.test(text)) return 'START'
+  return 'START'
 }
 
 const submitCommand = async () => {
@@ -234,6 +281,17 @@ onMounted(async () => {
 .alert-card p { margin: 8px 0 0; color: var(--muted); line-height: 1.7; }
 .alert-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; white-space: nowrap; }
 .alert-actions :deep(.el-button + .el-button) { margin-left: 0; }
+.alert-actions :deep(.action-btn) {
+  min-width: 92px;
+  height: 38px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.alert-actions :deep(.el-button--success.action-btn) {
+  box-shadow: 0 8px 18px rgba(82, 175, 83, .22);
+}
 .alert-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .alert-meta span { min-width: 0; color: var(--ink); font-size: 13px; line-height: 1.5; word-break: break-word; }
 .alert-meta b { display: block; margin-bottom: 4px; color: var(--muted); font-weight: 700; }

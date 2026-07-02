@@ -325,8 +325,8 @@ LEFT JOIN alert_rule r ON r.rule_code = 'CO2_HIGH_A01'
 WHERE g.name = 'A02 羊肚菌育菇大棚' AND g.deleted = FALSE
 AND NOT EXISTS (SELECT 1 FROM greenhouse_alert WHERE title = 'CO2 浓度接近上限' AND greenhouse_id = g.id AND deleted = FALSE);
 
-INSERT INTO greenhouse_alert(greenhouse_id, device_id, rule_id, title, description, level, status, handled_by, handle_note, handled_at, created_by)
-SELECT g.id, d.id, r.id, '水泵压力波动', '灌溉水泵压力波动，已安排复核。', 'WARNING', 'ACKNOWLEDGED', 'admin1', '已通知农户观察土壤水分变化。', CURRENT_TIMESTAMP - INTERVAL '1 hour', 'system'
+INSERT INTO greenhouse_alert(greenhouse_id, device_id, rule_id, title, description, level, status, created_by)
+SELECT g.id, d.id, r.id, '水泵压力波动', '灌溉水泵压力波动，已安排复核。', 'WARNING', 'ACKNOWLEDGED', 'system'
 FROM greenhouse g
 LEFT JOIN greenhouse_device d ON d.greenhouse_id = g.id AND d.name = '灌溉水泵' AND d.deleted = FALSE
 LEFT JOIN alert_rule r ON r.rule_code = 'HUMIDITY_HIGH_A01'

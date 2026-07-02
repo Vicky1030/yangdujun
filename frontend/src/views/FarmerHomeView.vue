@@ -14,7 +14,7 @@
         <el-select v-if="overview.greenhouses.length" v-model="greenhouseId" style="width: 240px" @change="load">
           <el-option v-for="item in overview.greenhouses" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
-        <el-button @click="openGreenhouseDialog">添加大棚</el-button>
+        <el-button class="ghost-action" @click="openGreenhouseDialog">添加大棚</el-button>
         <el-button type="primary" @click="$router.push('/profile')">完善资料</el-button>
       </div>
     </section>
@@ -31,24 +31,28 @@
     <template v-else>
       <div class="action-grid">
         <button type="button" @click="$router.push('/devices')">
-          <span>设备管理</span>
-          <strong>{{ deviceCount }}</strong>
-          <small>台设备</small>
+          <span>
+            <b>设备管理</b>
+          </span>
+          <strong>{{ deviceCount }}<small>台设备</small></strong>
         </button>
         <button type="button" @click="$router.push('/alerts')">
-          <span>告警处理</span>
-          <strong>{{ unresolvedAlertCount }}</strong>
-          <small>条待处理</small>
+          <span>
+            <b>告警处理</b>
+          </span>
+          <strong>{{ unresolvedAlertCount }}<small>条待处理</small></strong>
         </button>
         <button type="button" @click="$router.push('/analytics')">
-          <span>数据分析</span>
-          <strong>{{ telemetryMetricCount }}</strong>
-          <small>项指标</small>
+          <span>
+            <b>数据分析</b>
+          </span>
+          <strong>{{ telemetryMetricCount }}<small>项指标</small></strong>
         </button>
         <button type="button" @click="$router.push('/traceability')">
-          <span>批次溯源</span>
-          <strong>{{ batchCount }}</strong>
-          <small>个批次</small>
+          <span>
+            <b>批次溯源</b>
+          </span>
+          <strong>{{ batchCount }}<small>个批次</small></strong>
         </button>
       </div>
 
@@ -56,9 +60,9 @@
         <button class="telemetry-toggle" type="button" @click="telemetryExpanded = !telemetryExpanded">
           <div>
             <h2 class="section-title">环境实时数据</h2>
-            <p>空气、土壤、pH、CO2、光照与告警状态</p>
+            <p>空气、土壤、pH、CO2 与光照</p>
           </div>
-          <span class="toggle-icon" :class="{ open: telemetryExpanded }">⌄</span>
+          <span class="toggle-icon" :class="{ open: telemetryExpanded }">⌃</span>
         </button>
         <div v-if="telemetryExpanded" class="metric-grid farmer-metrics">
           <button class="metric-card" type="button" @click="$router.push('/analytics')">
@@ -86,11 +90,6 @@
             <strong>{{ telemetry.lightLux ?? '-' }} lx</strong>
             <small>{{ lightAdvice }}</small>
           </button>
-          <button class="metric-card" type="button" @click="$router.push('/alerts?status=OPEN')">
-            <span>待处理告警</span>
-            <strong>{{ overview.activeAlerts?.length || 0 }}</strong>
-            <small>{{ overview.activeAlerts?.length ? '请及时查看并处理' : '当前环境稳定' }}</small>
-          </button>
         </div>
       </section>
 
@@ -101,9 +100,12 @@
             <el-tag type="success">{{ selectedGreenhouse?.cropStage || '生产期' }}</el-tag>
           </div>
           <div class="task-list">
-            <article v-for="task in dailyTasks" :key="task.title">
-              <strong>{{ task.title }}</strong>
-              <p>{{ task.detail }}</p>
+            <article v-for="(task, index) in dailyTasks" :key="task.title">
+              <i>{{ index + 1 }}</i>
+              <div>
+                <strong>{{ task.title }}</strong>
+                <p>{{ task.detail }}</p>
+              </div>
             </article>
           </div>
         </section>
@@ -111,7 +113,7 @@
         <section class="panel">
           <div class="panel-head compact">
             <h2 class="section-title">待关注告警</h2>
-            <el-button link type="primary" @click="$router.push('/alerts')">查看全部</el-button>
+            <el-button class="panel-more" @click="$router.push('/alerts')">查看全部</el-button>
           </div>
           <div class="alert-list">
             <article v-for="alert in overview.activeAlerts" :key="alert.id">
@@ -129,23 +131,19 @@
       <section class="panel">
         <div class="panel-head compact">
           <h2 class="section-title">我的设备</h2>
-          <el-button link type="primary" @click="$router.push('/devices')">维护设备</el-button>
+          <el-button class="panel-more" @click="$router.push('/devices')">维护设备</el-button>
         </div>
-        <el-table :data="overview.devices" style="width: 100%; margin-top: 16px">
-          <el-table-column prop="name" label="设备" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="category" label="类型" width="140" />
-          <el-table-column prop="location" label="安装位置" min-width="170" show-overflow-tooltip />
-          <el-table-column prop="status" label="状态" width="110" align="center">
-            <template #default="{ row }">
-              <el-tag :type="deviceTag(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="healthScore" label="健康度" width="180">
-            <template #default="{ row }">
-              <el-progress :percentage="row.healthScore" :stroke-width="8" :status="row.healthScore < 60 ? 'exception' : undefined" />
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="home-device-grid">
+          <article v-for="device in overview.devices" :key="device.id" class="home-device-card">
+            <div>
+              <strong>{{ device.name }}</strong>
+              <p>{{ device.location || '未填写安装位置' }}</p>
+            </div>
+            <span>{{ device.category || '智能设备' }}</span>
+            <el-tag :type="deviceTag(device.status)" size="small">{{ statusText(device.status) }}</el-tag>
+          </article>
+          <el-empty v-if="!overview.devices?.length" description="当前大棚暂无设备" />
+        </div>
       </section>
     </template>
 
@@ -310,29 +308,47 @@ onBeforeUnmount(() => {
 .empty-workbench h3 { margin: 8px 0; color: var(--ink); font-size: 30px; }
 .farmer-hero p,
 .empty-workbench p { max-width: 760px; color: var(--muted); line-height: 1.8; }
+.hero-actions :deep(.el-select__wrapper),
+.hero-actions :deep(.el-button) {
+  min-height: 40px;
+  height: 40px;
+}
+.ghost-action {
+  border-color: rgba(73, 125, 78, 0.18);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--brand-strong);
+}
+.ghost-action:hover,
+.ghost-action:focus {
+  border-color: rgba(83, 184, 106, 0.42);
+  background: rgba(83, 184, 106, 0.1);
+  color: var(--brand-strong);
+}
 .empty-workbench {
   min-height: 260px;
   background: radial-gradient(circle at 12% 20%, rgba(83, 184, 106, 0.14), transparent 34%), linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(239, 250, 235, 0.86));
 }
 .clock-card {
-  min-width: 170px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.72);
-  text-align: right;
+  width: max-content;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
 }
 .clock-card span {
   display: block;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
 }
 .clock-card strong {
   display: block;
-  margin-top: 2px;
+  margin-top: 4px;
   color: var(--ink);
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
 }
 .telemetry-panel {
@@ -358,21 +374,42 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 .toggle-icon {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--line);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.74);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(241, 250, 237, 0.82));
   color: var(--brand-strong);
   display: grid;
   place-items: center;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 900;
   line-height: 1;
-  transition: transform 160ms ease;
+  box-shadow: 0 8px 18px rgba(42, 91, 48, 0.08);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.telemetry-toggle:hover .toggle-icon {
+  border-color: rgba(83, 184, 106, 0.36);
+  box-shadow: 0 10px 22px rgba(42, 91, 48, 0.12);
 }
 .toggle-icon.open {
   transform: rotate(180deg);
+}
+.panel-more {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(73, 125, 78, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--brand-strong);
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: none;
+}
+.panel-more:hover {
+  border-color: rgba(83, 184, 106, 0.42);
+  background: rgba(83, 184, 106, 0.1);
+  color: var(--brand-strong);
 }
 .telemetry-panel .farmer-metrics {
   padding: 0 18px 18px;
@@ -381,38 +418,123 @@ onBeforeUnmount(() => {
 .farmer-metrics small { display: block; margin-top: 8px; color: var(--muted); }
 .action-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .action-grid button {
-  min-height: 76px;
-  border: 1px solid var(--line);
+  min-height: 104px;
+  padding: 18px;
+  border: 1px solid rgba(73, 125, 78, 0.14);
   border-radius: var(--radius);
-  background: rgba(255,255,255,.8);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(244, 252, 239, 0.82)),
+    radial-gradient(circle at 90% 8%, rgba(83, 184, 106, 0.14), transparent 34%);
   color: var(--ink);
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
   cursor: pointer;
+  box-shadow: 0 12px 30px rgba(42, 91, 48, 0.06);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.action-grid button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(83, 184, 106, 0.38);
+  box-shadow: 0 18px 38px rgba(42, 91, 48, 0.1);
 }
 .action-grid button span {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.action-grid button b {
   color: var(--ink);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 900;
 }
 .action-grid button strong {
   color: var(--brand-strong);
-  font-size: 30px;
+  font-size: 38px;
   line-height: 1;
+  min-width: 48px;
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  text-align: right;
 }
 .action-grid button small {
   color: var(--muted);
   font-size: 13px;
+  font-weight: 700;
 }
 .task-list,
 .alert-list { display: grid; gap: 12px; }
-.task-list article,
+.task-list {
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px solid rgba(73, 125, 78, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.48);
+}
+.task-list article {
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.task-list article + article { border-top: 1px solid rgba(73, 125, 78, 0.12); border-radius: 0; }
+.task-list i {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(83, 184, 106, 0.13);
+  color: var(--brand-strong);
+  font-style: normal;
+  font-weight: 900;
+}
+.task-list strong { color: var(--ink); font-size: 16px; }
 .alert-list article { padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255, 255, 255, 0.72); }
 .alert-list article { display: flex; gap: 12px; }
 .task-list p,
 .alert-list p { margin: 6px 0 0; color: var(--muted); line-height: 1.7; }
+.home-device-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.home-device-card {
+  min-height: 76px;
+  padding: 14px 16px;
+  border: 1px solid rgba(73, 125, 78, 0.14);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.66);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+}
+.home-device-card strong {
+  display: block;
+  color: var(--ink);
+  font-size: 16px;
+}
+.home-device-card p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.home-device-card > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
 @media (max-width: 760px) {
   .farmer-hero,
   .empty-workbench,
@@ -420,5 +542,6 @@ onBeforeUnmount(() => {
   .hero-actions { flex-direction: column; align-items: stretch; }
   .clock-card { text-align: left; }
   .action-grid { grid-template-columns: 1fr; }
+  .home-device-grid { grid-template-columns: 1fr; }
 }
 </style>

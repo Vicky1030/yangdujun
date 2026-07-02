@@ -21,11 +21,15 @@
       <div class="chart-title">
         <div>
           <h3>环境趋势</h3>
-          <p class="muted">高数值指标使用独立坐标轴，温湿度、pH、CO2 和光照不会互相挤压。</p>
         </div>
-        <el-select v-model="trendMode" style="width: 180px" @change="renderCharts">
-          <el-option v-for="item in trendModes" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
+        <div class="chart-controls">
+          <el-select v-model="trendRangeHours" style="width: 150px" @change="loadAnalytics">
+            <el-option v-for="item in trendRanges" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+          <el-select v-model="trendMode" style="width: 180px" @change="renderCharts">
+            <el-option v-for="item in trendModes" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </div>
       </div>
       <div ref="trendRef" class="chart chart--large"></div>
     </section>
@@ -61,8 +65,16 @@ const deviceRef = ref(null)
 const alertRef = ref(null)
 const areaRef = ref(null)
 const trendMode = ref('all')
+const trendRangeHours = ref(24)
 const charts = []
 let resizeHandler = null
+
+const trendRanges = [
+  { label: '近24小时', value: 24 },
+  { label: '近3天', value: 72 },
+  { label: '近7天', value: 168 },
+  { label: '近14天', value: 336 }
+]
 
 const trendModes = [
   { label: '全部指标', value: 'all' },
@@ -85,6 +97,18 @@ const labelMap = {
   OPEN: '待处理',
   ACKNOWLEDGED: '已下发建议',
   RESOLVED: '已解决'
+}
+
+const chartPalette = {
+  green: '#5fa868',
+  sage: '#9aa89e',
+  amber: '#d8a342',
+  blue: '#5f83c8',
+  coral: '#d96a63',
+  teal: '#5aa7a7',
+  leaf: '#8abd76',
+  gold: '#e3c45f',
+  moss: '#7c9866'
 }
 
 const latest = computed(() => {
@@ -119,6 +143,15 @@ const unit = name => ({
   光照强度: 'lx'
 }[name] || '')
 
+const formatAxisTime = value => {
+  if (!value) return ''
+  const date = new Date(value)
+  const options = trendRangeHours.value > 24
+    ? { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
+    : { hour: '2-digit', minute: '2-digit' }
+  return date.toLocaleString('zh-CN', options).replace(/\//g, '/')
+}
+
 const trendSeries = trend => {
   const base = [
     { mode: 'airTemperature', name: '空气温度', type: 'line', smooth: true, symbolSize: 7, yAxisIndex: 0, data: trend.map(item => item.airTemperature), color: '#4f75d8' },
@@ -151,7 +184,7 @@ const renderCharts = async () => {
       }
     },
     legend: { top: 8, data: ['空气温度', '空气湿度', '土壤温度', '土壤湿度', 'pH 值', '二氧化碳', '光照强度'] },
-    grid: { left: 54, right: 96, top: 72, bottom: 72 },
+    grid: { left: 54, right: 172, top: 72, bottom: 72 },
     dataZoom: [
       { type: 'inside', throttle: 50 },
       { type: 'slider', height: 22, bottom: 22, borderColor: '#d7ead5', fillerColor: 'rgba(91, 173, 92, .18)' }
@@ -159,19 +192,44 @@ const renderCharts = async () => {
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: trend.map(item => new Date(item.collectedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
+      axisLabel: { hideOverlap: true, rotate: trendRangeHours.value > 24 ? 28 : 0 },
+      data: trend.map(item => formatAxisTime(item.collectedAt))
     },
     yAxis: [
       { type: 'value', name: '℃ / %', min: 0, max: 100, splitLine: { lineStyle: { color: '#dfebdd' } } },
       {
         type: 'value',
         name: 'CO2 ppm',
+        position: 'right',
+        nameGap: 24,
         min: value => Math.max(0, Math.floor(value.min / 100) * 100 - 100),
         max: value => Math.ceil(value.max / 100) * 100 + 100,
-        splitLine: { show: false }
+        splitLine: { show: false },
+        axisLabel: { align: 'center', margin: 22, width: 48 },
+        nameTextStyle: { align: 'center', padding: [0, 0, 0, 46] }
       },
-      { type: 'value', name: 'pH', min: 4, max: 9, splitLine: { show: false } },
-      { type: 'value', name: 'lx', offset: 54, splitLine: { show: false } }
+      {
+        type: 'value',
+        name: 'pH',
+        position: 'right',
+        offset: 58,
+        nameGap: 24,
+        min: 4,
+        max: 9,
+        splitLine: { show: false },
+        axisLabel: { align: 'center', margin: 12, width: 32 },
+        nameTextStyle: { align: 'center', padding: [0, 0, 0, 28] }
+      },
+      {
+        type: 'value',
+        name: 'lx',
+        position: 'right',
+        offset: 116,
+        nameGap: 24,
+        splitLine: { show: false },
+        axisLabel: { align: 'center', margin: 12, width: 48 },
+        nameTextStyle: { align: 'center', padding: [0, 0, 0, 36] }
+      }
     ],
     series: trendSeries(trend)
   })
@@ -182,22 +240,31 @@ const renderCharts = async () => {
     grid: { left: 42, right: 16, top: 28, bottom: 34 },
     xAxis: { type: 'category', data: deviceRows.map(item => item.name) },
     yAxis: { type: 'value', minInterval: 1 },
-    series: [{ type: 'bar', data: deviceRows.map(item => item.value), itemStyle: { color: params => ['#49a35a', '#9aa5a0', '#e0a33a'][params.dataIndex] || '#49a35a', borderRadius: [6, 6, 0, 0] } }]
+    series: [{ type: 'bar', data: deviceRows.map(item => item.value), itemStyle: { color: params => [chartPalette.green, chartPalette.sage, chartPalette.amber][params.dataIndex] || chartPalette.green, borderRadius: [6, 6, 0, 0] } }]
   })
 
   const alertRows = normalizeSeries(analytics.value.alertLevel)
   chart(alertRef.value).setOption({
-    color: ['#4f75d8', '#e0a33a', '#e95a5a'],
+    color: [chartPalette.blue, chartPalette.amber, chartPalette.coral],
     tooltip: { trigger: 'axis' },
     grid: { left: 42, right: 16, top: 28, bottom: 34 },
     xAxis: { type: 'category', data: alertRows.map(item => item.name) },
     yAxis: { type: 'value', minInterval: 1 },
-    series: [{ type: 'bar', data: alertRows.map(item => item.value), itemStyle: { color: params => ['#4f75d8', '#e0a33a', '#e95a5a'][params.dataIndex], borderRadius: [6, 6, 0, 0] } }]
+    series: [{ type: 'bar', data: alertRows.map(item => item.value), itemStyle: { color: params => [chartPalette.blue, chartPalette.amber, chartPalette.coral][params.dataIndex], borderRadius: [6, 6, 0, 0] } }]
   })
 
   chart(areaRef.value).setOption({
+    color: [chartPalette.green, chartPalette.gold, chartPalette.teal, chartPalette.leaf, chartPalette.moss, chartPalette.sage],
     tooltip: { trigger: 'item' },
-    series: [{ type: 'pie', roseType: 'area', radius: [20, 100], data: normalizeSeries(analytics.value.greenhouseAreas) }]
+    series: [{
+      type: 'pie',
+      roseType: 'area',
+      radius: [20, 100],
+      label: { color: '#516157' },
+      labelLine: { lineStyle: { color: '#aac6a7' } },
+      itemStyle: { borderColor: 'rgba(255,255,255,.82)', borderWidth: 2 },
+      data: normalizeSeries(analytics.value.greenhouseAreas)
+    }]
   })
 }
 
@@ -205,7 +272,7 @@ const loadAnalytics = async () => {
   if (!greenhouseId.value) return
   loading.value = true
   try {
-    analytics.value = await fetchAnalytics(greenhouseId.value)
+    analytics.value = await fetchAnalytics(greenhouseId.value, trendRangeHours.value)
     await renderCharts()
   } finally {
     loading.value = false
@@ -272,6 +339,12 @@ onBeforeUnmount(() => {
 .chart-title p {
   margin-top: 6px;
 }
+.chart-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 .chart {
   width: 100%;
   height: 330px;
@@ -289,6 +362,9 @@ onBeforeUnmount(() => {
   .chart-title {
     align-items: stretch;
     flex-direction: column;
+  }
+  .chart-controls {
+    justify-content: flex-start;
   }
   .analytics-grid {
     grid-template-columns: 1fr;

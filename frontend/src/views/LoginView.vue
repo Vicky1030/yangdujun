@@ -2,8 +2,11 @@
   <main class="login">
     <section class="login-brand">
       <span>智慧农业 · IoT · AI 调控</span>
-      <h1>菌境智联 · 羊肚菌智慧生态调控系统</h1>
-      <p>面向管理员和农户的大棚环境监测、设备管理、告警闭环与生产溯源平台。</p>
+      <h1>
+        <span class="title-line">菌境智联 · 羊肚菌</span>
+        <span class="title-line">智慧种植调控系统</span>
+      </h1>
+      <p>面向农户和管理员的大棚环境监测、设备管理、告警闭环与生产溯源平台。</p>
     </section>
 
     <section class="login-panel">
@@ -252,12 +255,17 @@ const openPolicy = async (type) => {
   letter-spacing: 0;
 }
 
+.login-brand .title-line {
+  display: block;
+}
+
 .login-brand p {
-  max-width: 520px;
+  max-width: none;
   margin: 22px 0 0;
   color: var(--muted);
   font-size: 17px;
   line-height: 1.9;
+  white-space: nowrap;
 }
 
 .login-panel {

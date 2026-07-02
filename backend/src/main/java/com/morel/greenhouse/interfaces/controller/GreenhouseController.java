@@ -88,8 +88,12 @@ public class GreenhouseController {
     }
 
     @GetMapping("/analytics")
-    public ApiResult<GreenhouseAnalytics> analytics(@RequestParam(required = false) Long greenhouseId, HttpServletRequest servletRequest) {
-        return ApiResult.ok(analyticsService.analytics(greenhouseId, currentUser(servletRequest)));
+    public ApiResult<GreenhouseAnalytics> analytics(
+            @RequestParam(required = false) Long greenhouseId,
+            @RequestParam(required = false, defaultValue = "24") Integer rangeHours,
+            HttpServletRequest servletRequest
+    ) {
+        return ApiResult.ok(analyticsService.analytics(greenhouseId, rangeHours, currentUser(servletRequest)));
     }
 
     @GetMapping("/telemetry")
@@ -121,8 +125,8 @@ public class GreenhouseController {
     }
 
     @PostMapping("/devices/commands")
-    public ApiResult<Void> command(@Valid @RequestBody DeviceCommandRequest request) {
-        deviceCommandService.execute(request);
+    public ApiResult<Void> command(@Valid @RequestBody DeviceCommandRequest request, HttpServletRequest servletRequest) {
+        deviceCommandService.execute(request, currentUser(servletRequest));
         return ApiResult.ok();
     }
 
@@ -145,7 +149,7 @@ public class GreenhouseController {
     @PostMapping("/alerts/{id}/command")
     public ApiResult<Void> alertCommand(@PathVariable Long id, @Valid @RequestBody AlertCommandRequest request, HttpServletRequest servletRequest) {
         if (request.deviceId() != null) {
-            deviceCommandService.execute(new DeviceCommandRequest(request.deviceId(), request.command(), request.note()));
+            deviceCommandService.execute(new DeviceCommandRequest(request.deviceId(), request.command(), request.note()), currentUser(servletRequest));
         }
         managementService.recordAlertCommand(id, request, currentUser(servletRequest));
         return ApiResult.ok();

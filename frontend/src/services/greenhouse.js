@@ -1,7 +1,7 @@
 import { http } from './http'
 
 export const fetchOverview = (greenhouseId) => http.get('/greenhouses/overview', { params: { greenhouseId } })
-export const fetchAnalytics = (greenhouseId) => http.get('/greenhouses/analytics', { params: { greenhouseId } })
+export const fetchAnalytics = (greenhouseId, rangeHours) => http.get('/greenhouses/analytics', { params: { greenhouseId, rangeHours } })
 export const fetchGreenhouses = () => http.get('/greenhouses')
 export const createGreenhouse = (payload) => http.post('/greenhouses', payload)
 export const updateGreenhouse = (id, payload) => http.put(`/greenhouses/${id}`, payload)
