@@ -25,6 +25,13 @@
         <springdoc.version>2.6.0</springdoc.version>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>project-vendor</id>
+            <url>file://${project.basedir}/vendor/maven</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -131,8 +138,7 @@
                     <groupId>cn.com.kingbase</groupId>
                     <artifactId>kingbase8</artifactId>
                     <version>9.0.0</version>
-                    <scope>system</scope>
-                    <systemPath>${project.basedir}/lib/kingbase8.jar</systemPath>
+                    <scope>runtime</scope>
                 </dependency>
             </dependencies>
         </profile>
