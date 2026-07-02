@@ -30,17 +30,9 @@
           <el-icon><TrendCharts /></el-icon>
           <span>数据分析</span>
         </el-menu-item>
-        <el-menu-item v-if="!isAdmin" index="/ai-assistant">
+        <el-menu-item index="/ai-assistant">
           <el-icon><ChatLineRound /></el-icon>
           <span>AI助手</span>
-        </el-menu-item>
-        <el-menu-item v-if="isAdmin" index="/ai-assistant">
-          <el-icon><ChatLineRound /></el-icon>
-          <span>AI对话诊断</span>
-        </el-menu-item>
-        <el-menu-item v-if="isAdmin" index="/ai-suggestions">
-          <el-icon><Aim /></el-icon>
-          <span>AI建议中心</span>
         </el-menu-item>
         <el-menu-item index="/traceability">
           <el-icon><Tickets /></el-icon>
@@ -105,7 +97,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Aim,
   Bell,
   ChatDotRound,
   ChatLineRound,
@@ -161,9 +152,11 @@ onMounted(() => {
   loadUnread()
   timer = window.setInterval(loadUnread, 15000)
 })
+
 onBeforeUnmount(() => {
   if (timer) window.clearInterval(timer)
 })
+
 watch(() => route.fullPath, loadUnread)
 </script>
 

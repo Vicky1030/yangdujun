@@ -64,6 +64,9 @@ greenhouse:
       region-id: ${HUAWEI_IOT_REGION_ID:cn-north-4}
       endpoint: ${HUAWEI_IOT_ENDPOINT:}
       derived-auth: ${HUAWEI_IOT_DERIVED_AUTH:true}
+      command-enabled: ${HUAWEI_IOT_COMMAND_ENABLED:false}
+      command-service-id: ${HUAWEI_IOT_COMMAND_SERVICE_ID:}
+      instance-id: ${HUAWEI_IOT_INSTANCE_ID:}
   security:
     admin-username: admin1
     admin-default-password: ${GREENHOUSE_ADMIN_PASSWORD:admin123}

@@ -6,6 +6,7 @@ dist/
 *.env
 .idea/
 .vscode/
+.deploy/
 .DS_Store
 frontend/dist/
 frontend/node_modules/
