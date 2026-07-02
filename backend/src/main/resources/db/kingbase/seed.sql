@@ -228,7 +228,7 @@ WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
 AND NOT EXISTS (SELECT 1 FROM greenhouse_alert WHERE title = '湿度波动偏高' AND greenhouse_id = g.id AND deleted = FALSE);
 
 INSERT INTO traceability_record(greenhouse_id, batch_no, operation, operator, operation_date, note, created_by)
-SELECT g.id, 'ML-202606-A01', '基质入棚', '张工', CURRENT_DATE - 28, '完成批次建档并绑定溯源码', 'system'
+SELECT g.id, 'ML-202606-A01', '基质入棚', 'admin1', CURRENT_DATE - 28, '完成批次建档并绑定溯源码', 'system'
 FROM greenhouse g WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
 AND NOT EXISTS (SELECT 1 FROM traceability_record WHERE batch_no = 'ML-202606-A01' AND operation = '基质入棚' AND deleted = FALSE);
 
@@ -240,17 +240,17 @@ WHERE g.name = 'A01 羊肚菌智能大棚' AND g.deleted = FALSE
 LIMIT 1;
 
 INSERT INTO production_batch_event(batch_id, event_code, event_title, event_status, operator, event_time, description, block_hash, previous_hash, sort_order)
-SELECT b.id, 'SUBSTRATE_IN', '基质入棚', 'DONE', '张工', CURRENT_TIMESTAMP - INTERVAL '28 days', '完成培养基入棚、消毒记录和批次建档。', 'BATCH-A01-001', NULL, 10
+SELECT b.id, 'SUBSTRATE_IN', '基质入棚', 'DONE', 'admin1', CURRENT_TIMESTAMP - INTERVAL '28 days', '完成培养基入棚、消毒记录和批次建档。', 'BATCH-A01-001', NULL, 10
 FROM production_batch b WHERE b.batch_no = 'ML-202606-A01'
 AND NOT EXISTS (SELECT 1 FROM production_batch_event WHERE batch_id = b.id AND event_code = 'SUBSTRATE_IN');
 
 INSERT INTO production_batch_event(batch_id, event_code, event_title, event_status, operator, event_time, description, block_hash, previous_hash, sort_order)
-SELECT b.id, 'MYCELIUM_RECOVERY', '菌丝恢复', 'DONE', '李工', CURRENT_TIMESTAMP - INTERVAL '14 days', '湿度目标上调至 86%，菌丝恢复状态良好。', 'BATCH-A01-002', 'BATCH-A01-001', 20
+SELECT b.id, 'MYCELIUM_RECOVERY', '菌丝恢复', 'DONE', 'admin2', CURRENT_TIMESTAMP - INTERVAL '14 days', '湿度目标上调至 86%，菌丝恢复状态良好。', 'BATCH-A01-002', 'BATCH-A01-001', 20
 FROM production_batch b WHERE b.batch_no = 'ML-202606-A01'
 AND NOT EXISTS (SELECT 1 FROM production_batch_event WHERE batch_id = b.id AND event_code = 'MYCELIUM_RECOVERY');
 
 INSERT INTO production_batch_event(batch_id, event_code, event_title, event_status, operator, event_time, description, block_hash, previous_hash, sort_order)
-SELECT b.id, 'FRUITING_CONTROL', '出菇期调控', 'RUNNING', '管理员', CURRENT_TIMESTAMP - INTERVAL '2 days', '温度、湿度、CO2 浓度进入连续监测与告警闭环。', 'BATCH-A01-003', 'BATCH-A01-002', 30
+SELECT b.id, 'FRUITING_CONTROL', '出菇期调控', 'RUNNING', 'admin1', CURRENT_TIMESTAMP - INTERVAL '2 days', '温度、湿度、CO2 浓度进入连续监测与告警闭环。', 'BATCH-A01-003', 'BATCH-A01-002', 30
 FROM production_batch b WHERE b.batch_no = 'ML-202606-A01'
 AND NOT EXISTS (SELECT 1 FROM production_batch_event WHERE batch_id = b.id AND event_code = 'FRUITING_CONTROL');
 

@@ -254,11 +254,13 @@ watch(() => route.query.conversationId, id => {
 .message.mine .bubble { background: #dff7de; border-color: rgba(78, 178, 88, .35); }
 .bubble img { display: block; max-width: 280px; max-height: 190px; border-radius: 6px; margin-bottom: 8px; object-fit: cover; }
 .bubble p { margin: 0; white-space: pre-wrap; }
-.composer { display: grid; grid-template-columns: minmax(0, 1fr) 160px auto; gap: 12px; align-items: end; padding: 14px 24px; border-top: 1px solid var(--line); background: rgba(255,255,255,.68); }
-.upload-preview { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.composer { display: grid; grid-template-columns: minmax(0, 1fr) 150px 96px; gap: 12px; align-items: stretch; padding: 14px 24px; border-top: 1px solid var(--line); background: rgba(255,255,255,.68); }
+.composer :deep(.el-textarea__inner) { min-height: 60px !important; height: 60px; resize: none; }
+.composer :deep(.el-button) { width: 96px; height: 60px; align-self: stretch; }
+.upload-preview { display: grid; grid-template-columns: minmax(0, 1fr) 42px; align-items: stretch; gap: 8px; min-width: 0; height: 60px; }
 .upload-button {
-  width: 96px;
-  height: 42px;
+  width: 100%;
+  height: 60px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -266,7 +268,7 @@ watch(() => route.query.conversationId, id => {
   font-weight: 800;
   cursor: pointer;
 }
-.upload-preview img { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); }
+.upload-preview img { width: 42px; height: 60px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); }
 
 @media (max-width: 900px) {
   .feedback-page { grid-template-columns: 1fr; height: auto; }

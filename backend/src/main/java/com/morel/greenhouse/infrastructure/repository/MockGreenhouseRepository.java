@@ -86,9 +86,9 @@ public class MockGreenhouseRepository implements GreenhouseRepository {
     @Override
     public List<TraceabilityRecord> findTraceabilityRecords(Long greenhouseId) {
         return List.of(
-                new TraceabilityRecord(3001L, greenhouseId, "ML-202606-A01", "基质入棚", "张工", LocalDate.now().minusDays(28), "完成批次建档与二维码绑定"),
-                new TraceabilityRecord(3002L, greenhouseId, "ML-202606-A01", "温湿度策略调整", "李工", LocalDate.now().minusDays(12), "夜间湿度目标上调至 86%"),
-                new TraceabilityRecord(3003L, greenhouseId, "ML-202606-A01", "巡检采样", "王工", LocalDate.now().minusDays(2), "抽检 12 个点位，长势均衡")
+                new TraceabilityRecord(3001L, greenhouseId, "ML-202606-A01", "基质入棚", "admin1", LocalDate.now().minusDays(28), "完成批次建档与二维码绑定"),
+                new TraceabilityRecord(3002L, greenhouseId, "ML-202606-A01", "温湿度策略调整", "admin2", LocalDate.now().minusDays(12), "夜间湿度目标上调至 86%"),
+                new TraceabilityRecord(3003L, greenhouseId, "ML-202606-A01", "巡检采样", "admin1", LocalDate.now().minusDays(2), "抽检 12 个点位，长势均衡")
         );
     }
 

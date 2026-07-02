@@ -8,6 +8,7 @@
         </div>
         <el-button v-if="isAdmin" type="primary" @click="openCreateBatch">新建批次</el-button>
       </div>
+
       <div :class="['filters', { 'filters--admin': isAdmin }]">
         <el-input v-model.trim="filters.batchNo" clearable placeholder="批次码" />
         <el-select v-if="isAdmin" v-model="filters.farmerId" clearable placeholder="选择农户" @change="onFarmerChange">
@@ -22,16 +23,27 @@
         >
           <el-option v-for="item in greenhouses" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
-        <el-date-picker v-model="dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" />
+        <el-date-picker
+          v-model="dateRange"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          value-format="YYYY-MM-DD"
+        />
         <el-button type="primary" @click="load">查询</el-button>
       </div>
+
       <div class="batch-grid">
         <article v-for="batch in batches" :key="batch.id" class="batch-card" @click="openDetail(batch)">
           <span>{{ batch.greenhouse_name }}</span>
           <h3>{{ batch.batch_name }}</h3>
           <p>批次码：{{ batch.batch_no }}</p>
           <p>{{ batch.summary || '暂无说明' }}</p>
-          <div><el-tag :type="statusTagType(batch.status)">{{ statusText(batch.status) }}</el-tag><small>{{ formatDate(batch.started_at) }} 开始</small></div>
+          <div>
+            <el-tag :type="statusTagType(batch.status)">{{ statusText(batch.status) }}</el-tag>
+            <small>{{ formatDate(batch.started_at) }} 开始</small>
+          </div>
         </article>
         <el-empty v-if="!batches.length" description="暂无批次数据" />
       </div>
@@ -47,6 +59,7 @@
           </div>
           <el-button v-if="isAdmin" type="primary" @click="openCreateEvent">确认新节点</el-button>
         </div>
+
         <div class="block-chain">
           <article v-for="(event, index) in detail.events" :key="event.id" class="block-card">
             <div class="block-index">{{ index + 1 }}</div>
@@ -57,7 +70,9 @@
               <button class="detail-button" type="button" @click.stop="openEvent(event)">详细信息</button>
               <code>{{ event.previous_hash || 'GENESIS' }} -> {{ event.block_hash || '-' }}</code>
             </div>
-            <el-tag :type="event.event_status === 'RUNNING' ? 'warning' : 'success'">{{ event.event_status === 'RUNNING' ? '进行中' : '已确认' }}</el-tag>
+            <el-tag :type="event.event_status === 'RUNNING' ? 'warning' : 'success'">
+              {{ event.event_status === 'RUNNING' ? '进行中' : '已确认' }}
+            </el-tag>
           </article>
         </div>
       </div>
@@ -73,8 +88,12 @@
         <el-form-item label="批次码"><el-input v-model.trim="batchForm.batchNo" /></el-form-item>
         <el-form-item label="批次名称"><el-input v-model.trim="batchForm.batchName" /></el-form-item>
         <el-form-item label="作物名称"><el-input v-model.trim="batchForm.cropName" /></el-form-item>
-        <el-form-item label="开始日期"><el-date-picker v-model="batchForm.startedAt" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
-        <el-form-item label="预计采收日期"><el-date-picker v-model="batchForm.expectedHarvestAt" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
+        <el-form-item label="开始日期">
+          <el-date-picker v-model="batchForm.startedAt" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="预计采收日期">
+          <el-date-picker v-model="batchForm.expectedHarvestAt" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
         <el-form-item label="说明"><el-input v-model.trim="batchForm.summary" type="textarea" :rows="3" /></el-form-item>
         <div class="dialog-actions">
           <el-button @click="batchDialog = false">取消</el-button>
@@ -93,7 +112,14 @@
             <el-option label="进行中" value="RUNNING" />
           </el-select>
         </el-form-item>
-        <el-form-item label="图片地址或 Base64"><el-input v-model.trim="eventForm.imageUrl" placeholder="可粘贴图片 URL，或上传后生成的地址" /></el-form-item>
+        <el-form-item label="上传图片">
+          <div class="event-upload">
+            <input ref="eventFileInput" type="file" accept="image/*" hidden @change="onEventImageChange" />
+            <button type="button" class="upload-button" @click="eventFileInput?.click()">选择图片</button>
+            <img v-if="eventImagePreview" :src="eventImagePreview" alt="待上传图片" />
+            <button v-if="eventImagePreview" type="button" class="clear-button" @click="clearEventImage">移除</button>
+          </div>
+        </el-form-item>
         <el-form-item label="说明"><el-input v-model.trim="eventForm.description" type="textarea" :rows="4" /></el-form-item>
         <div class="dialog-actions">
           <el-button @click="eventDialog = false">取消</el-button>
@@ -135,13 +161,24 @@ const eventVisible = ref(false)
 const batchDialog = ref(false)
 const eventDialog = ref(false)
 const selectedEvent = ref(null)
+const eventFileInput = ref(null)
+const eventImagePreview = ref('')
 const detail = reactive({ batch: null, events: [] })
 const filters = reactive({
   batchNo: '',
   farmerId: route.query.farmerId ? Number(route.query.farmerId) : null,
   greenhouseId: route.query.greenhouseId ? Number(route.query.greenhouseId) : null
 })
-const batchForm = reactive({ greenhouseId: null, batchNo: '', batchName: '', cropName: '羊肚菌', status: 'RUNNING', startedAt: '', expectedHarvestAt: '', summary: '' })
+const batchForm = reactive({
+  greenhouseId: null,
+  batchNo: '',
+  batchName: '',
+  cropName: '羊肚菌',
+  status: 'RUNNING',
+  startedAt: '',
+  expectedHarvestAt: '',
+  summary: ''
+})
 const eventForm = reactive({ eventCode: '', eventTitle: '', eventStatus: 'DONE', description: '', imageUrl: '' })
 
 const farmers = computed(() => users.value.filter(item => item.role_code === 'FARMER'))
@@ -183,12 +220,23 @@ const openDetail = async batch => {
 }
 
 const openCreateBatch = () => {
-  Object.assign(batchForm, { greenhouseId: filters.greenhouseId || greenhouses.value[0]?.id || null, batchNo: '', batchName: '', cropName: '羊肚菌', status: 'RUNNING', startedAt: '', expectedHarvestAt: '', summary: '' })
+  Object.assign(batchForm, {
+    greenhouseId: filters.greenhouseId || greenhouses.value[0]?.id || null,
+    batchNo: '',
+    batchName: '',
+    cropName: '羊肚菌',
+    status: 'RUNNING',
+    startedAt: '',
+    expectedHarvestAt: '',
+    summary: ''
+  })
   batchDialog.value = true
 }
 
 const submitBatch = async () => {
-  if (!batchForm.greenhouseId || !batchForm.batchNo || !batchForm.batchName || !batchForm.startedAt) return ElMessage.warning('请补全批次信息')
+  if (!batchForm.greenhouseId || !batchForm.batchNo || !batchForm.batchName || !batchForm.startedAt) {
+    return ElMessage.warning('请补全批次信息')
+  }
   saving.value = true
   try {
     await createBatch(batchForm)
@@ -202,7 +250,29 @@ const submitBatch = async () => {
 
 const openCreateEvent = () => {
   Object.assign(eventForm, { eventCode: '', eventTitle: '', eventStatus: 'DONE', description: '', imageUrl: '' })
+  clearEventImage()
   eventDialog.value = true
+}
+
+const onEventImageChange = event => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (file.size > 2 * 1024 * 1024) {
+    event.target.value = ''
+    return ElMessage.warning('图片不能超过 2MB')
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    eventForm.imageUrl = String(reader.result || '')
+    eventImagePreview.value = eventForm.imageUrl
+  }
+  reader.readAsDataURL(file)
+}
+
+const clearEventImage = () => {
+  eventForm.imageUrl = ''
+  eventImagePreview.value = ''
+  if (eventFileInput.value) eventFileInput.value.value = ''
 }
 
 const submitEvent = async () => {
@@ -212,6 +282,7 @@ const submitEvent = async () => {
     await createBatchEvent(detail.batch.id, eventForm)
     ElMessage.success('链路节点已确认')
     eventDialog.value = false
+    clearEventImage()
     Object.assign(detail, await fetchBatchDetail(detail.batch.id))
   } finally {
     saving.value = false
@@ -312,6 +383,33 @@ onMounted(async () => {
 .block-body small { display: block; color: var(--muted); }
 .block-body code { display: block; margin-top: 8px; color: #2f6f45; white-space: normal; }
 .detail-button { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--brand-strong); padding: 7px 12px; font-weight: 800; cursor: pointer; }
+.event-upload {
+  display: grid;
+  grid-template-columns: 120px 96px auto;
+  align-items: center;
+  justify-content: start;
+  gap: 10px;
+}
+.upload-button,
+.clear-button {
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+.upload-button { width: 120px; }
+.clear-button { width: 72px; color: #d44444; }
+.event-upload img {
+  width: 96px;
+  height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f6fbf2;
+}
 .event-detail { display: grid; gap: 12px; }
 .event-detail h3,
 .event-detail p { margin: 0; }
