@@ -10,6 +10,8 @@ import com.huaweicloud.sdk.core.exception.RequestTimeoutException;
 import com.huaweicloud.sdk.core.exception.ServiceResponseException;
 import com.huaweicloud.sdk.core.region.Region;
 import com.huaweicloud.sdk.iotda.v5.IoTDAClient;
+import com.huaweicloud.sdk.iotda.v5.model.DeviceShadowData;
+import com.huaweicloud.sdk.iotda.v5.model.DeviceShadowProperties;
 import com.huaweicloud.sdk.iotda.v5.model.ShowDeviceShadowRequest;
 import com.huaweicloud.sdk.iotda.v5.model.ShowDeviceShadowResponse;
 import org.slf4j.Logger;
@@ -91,7 +93,7 @@ public class HuaweiIotPullService {
         try {
             ShowDeviceShadowRequest request = new ShowDeviceShadowRequest().withDeviceId(deviceId);
             ShowDeviceShadowResponse response = client().showDeviceShadow(request);
-            JsonNode properties = extractLatestProperties(objectMapper.readTree(response.toString()), deviceId);
+            JsonNode properties = extractLatestProperties(response, deviceId);
             if (properties == null || properties.isMissingNode() || properties.isNull()) {
                 log.warn("Huawei IoT shadow has no reported properties for device {}", deviceId);
                 return Map.of("device_id", deviceId, "status", "NO_PROPERTIES");
@@ -113,6 +115,76 @@ public class HuaweiIotPullService {
             log.warn("Huawei IoT pull failed: deviceId={}, message={}", deviceId, exception.getMessage(), exception);
             return Map.of("device_id", deviceId, "status", "FAILED", "message", exception.getMessage());
         }
+    }
+
+    private JsonNode extractLatestProperties(ShowDeviceShadowResponse response, String deviceId) {
+        JsonNode latestProperties = null;
+        String latestEventTime = null;
+        if (response.getShadow() != null) {
+            for (DeviceShadowData item : response.getShadow()) {
+                DeviceShadowProperties reported = item.getReported();
+                if (reported == null || reported.getProperties() == null) {
+                    continue;
+                }
+                JsonNode properties = toPropertiesNode(reported.getProperties());
+                if (properties == null || properties.isMissingNode() || properties.isNull()) {
+                    continue;
+                }
+                latestProperties = properties;
+                latestEventTime = reported.getEventTime();
+            }
+        }
+        if (latestEventTime != null && !latestEventTime.isBlank() && latestEventTime.equals(lastEventTimes.get(deviceId))) {
+            return null;
+        }
+        if (latestEventTime != null && !latestEventTime.isBlank()) {
+            lastEventTimes.put(deviceId, latestEventTime);
+        }
+        return latestProperties;
+    }
+
+    private JsonNode toPropertiesNode(Object properties) {
+        if (properties instanceof String text) {
+            if (text.isBlank()) {
+                return null;
+            }
+            try {
+                return objectMapper.readTree(text);
+            } catch (Exception ignored) {
+                return parseSdkStyleProperties(text);
+            }
+        }
+        return objectMapper.valueToTree(properties);
+    }
+
+    private JsonNode parseSdkStyleProperties(String text) {
+        ObjectNode node = objectMapper.createObjectNode();
+        String[] lines = text.split("\\R");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            int colon = trimmed.indexOf(':');
+            if (colon <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, colon).trim();
+            String value = trimmed.substring(colon + 1).trim();
+            if (key.isBlank() || value.isBlank()) {
+                continue;
+            }
+            if (value.endsWith(",")) {
+                value = value.substring(0, value.length() - 1).trim();
+            }
+            if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.substring(1, value.length() - 1);
+            }
+            try {
+                double number = Double.parseDouble(value);
+                node.put(key, number);
+            } catch (NumberFormatException ignored) {
+                node.put(key, value);
+            }
+        }
+        return node.size() == 0 ? null : node;
     }
 
     private JsonNode extractLatestProperties(JsonNode root, String deviceId) {
