@@ -91,6 +91,7 @@
               ref="cameraVideoRef"
               class="camera-card__video"
               src="/media/a01-camera-demo.mp4?v=20260703"
+              poster="/media/a01-camera-poster.jpg?v=20260703"
               muted
               loop
               playsinline
@@ -375,7 +376,8 @@ watch(() => route.query.greenhouseId, async value => {
   color: #fff;
   background:
     linear-gradient(180deg, rgba(10, 30, 18, 0.08), rgba(10, 30, 18, 0.78)),
-    repeating-linear-gradient(135deg, rgba(107, 188, 117, 0.16) 0 1px, transparent 1px 18px);
+    linear-gradient(90deg, rgba(10, 30, 18, 0.34), transparent 58%),
+    url("/media/a01-camera-poster.jpg?v=20260703") center / cover;
   text-align: left;
   cursor: pointer;
 }
@@ -407,7 +409,11 @@ watch(() => route.query.greenhouseId, async value => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: #10261b;
+  opacity: 0;
+}
+
+.camera-card__screen--playing .camera-card__video {
+  opacity: 1;
 }
 
 .camera-card__screen span {
