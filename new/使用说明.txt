@@ -1,0 +1,40 @@
+智慧小菇接入 Web 端文件包
+
+用途：
+本文件夹只包含本次把 Dify 智慧小菇嵌入数字孪生 Web 前端所需的文件。
+队友不要直接运行 new 文件夹，只需要按相同路径复制并覆盖到项目根目录。
+
+需要覆盖的文件：
+new\digital-twin\digital-twin-frontend\src\App.vue
+覆盖到：
+digital-twin\digital-twin-frontend\src\App.vue
+
+new\digital-twin\digital-twin-frontend\src\style.css
+覆盖到：
+digital-twin\digital-twin-frontend\src\style.css
+
+new\digital-twin\digital-twin-frontend\.env
+覆盖到：
+digital-twin\digital-twin-frontend\.env
+
+new\digital-twin\digital-twin-frontend\.env.example
+覆盖到：
+digital-twin\digital-twin-frontend\.env.example
+
+new\digital-twin\digital-twin-frontend\README.md
+覆盖到：
+digital-twin\digital-twin-frontend\README.md
+
+运行方式：
+1. 确保运行 Dify 的电脑已启动 Docker Desktop、Dify 和 Ollama。
+2. 确保队友电脑能访问：
+   http://172.22.44.178:8090
+3. 在前端目录执行：
+   npm install
+   npm run dev
+4. 打开终端给出的 Vite 地址，通常为：
+   http://localhost:5173
+
+说明：
+.env 中的 VITE_DIFY_CHAT_URL 指向运行 Dify 的电脑。
+如果运行 Dify 的电脑 IP 改变，需要同步修改 .env 中的地址。
