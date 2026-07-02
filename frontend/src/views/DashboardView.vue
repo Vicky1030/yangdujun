@@ -84,12 +84,13 @@
           <div class="camera-card__screen">
             <video
               class="camera-card__video"
-              src="/media/a01-camera-demo.mp4"
+              src="/media/a01-camera-demo.mp4?v=20260703"
               autoplay
+              controls
               muted
               loop
               playsinline
-              preload="metadata"
+              preload="auto"
             ></video>
             <span>实时摄像头</span>
             <strong>{{ selectedGreenhouse?.name }}</strong>
@@ -347,6 +348,7 @@ watch(() => route.query.greenhouseId, async value => {
 
 .camera-card__screen {
   position: relative;
+  isolation: isolate;
   display: flex;
   min-height: 262px;
   height: 100%;
@@ -373,9 +375,11 @@ watch(() => route.query.greenhouseId, async value => {
 .camera-card__video {
   position: absolute;
   inset: 0;
+  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  background: #10261b;
 }
 
 .camera-card__screen span {
