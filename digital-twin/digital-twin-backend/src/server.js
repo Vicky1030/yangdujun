@@ -29,13 +29,18 @@ app.get('/api/twin/overview', async (_request, response) => {
       query(`
         SELECT id, greenhouse_id, name, category, status, location, auto_mode, health_score, last_command, created_at, updated_at
         FROM public.greenhouse_device
-        ORDER BY id
+        ORDER BY greenhouse_id, id
       `),
       query(`
         SELECT id, greenhouse_id, temperature, humidity, light_lux, co2_ppm, soil_moisture, collected_at
-        FROM public.telemetry_snapshot
-        ORDER BY collected_at DESC
-        LIMIT 1
+        FROM (
+          SELECT
+            id, greenhouse_id, temperature, humidity, light_lux, co2_ppm, soil_moisture, collected_at,
+            ROW_NUMBER() OVER (PARTITION BY greenhouse_id ORDER BY collected_at DESC) AS row_num
+          FROM public.telemetry_snapshot
+        ) latest
+        WHERE row_num = 1
+        ORDER BY greenhouse_id
       `),
       query(`
         SELECT id, greenhouse_id, title, description, level, status, occurred_at, resolved_at, device_id

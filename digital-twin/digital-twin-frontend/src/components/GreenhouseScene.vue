@@ -82,8 +82,8 @@ function getDevicePayload(modelNode, greenhouseId) {
   return device ? { type: 'device', id: device.deviceId } : null
 }
 
-function getSensorValue(type) {
-  const sensor = props.twinData.sensors.find((item) => item.type === type)
+function getSensorValue(type, greenhouseId) {
+  const sensor = props.twinData.sensors.find((item) => item.type === type && item.greenhouseId === greenhouseId)
   return sensor ? `${sensor.value}${sensor.unit}` : '--'
 }
 
@@ -128,9 +128,9 @@ function createDataBoardTexture(greenhouse) {
   ctx.fillText(greenhouse.status === 'WARNING' ? '需要关注' : '运行正常', 82, 212)
 
   const rows = [
-    ['温度', getSensorValue('TEMPERATURE'), '湿度', getSensorValue('HUMIDITY')],
-    ['CO₂', getSensorValue('CO2'), '光照', getSensorValue('LIGHT')],
-    ['基质', getSensorValue('SOIL_MOISTURE'), '阶段', greenhouse.cropStage || '出菇期'],
+    ['温度', getSensorValue('TEMPERATURE', greenhouse.id), '湿度', getSensorValue('HUMIDITY', greenhouse.id)],
+    ['CO₂', getSensorValue('CO2', greenhouse.id), '光照', getSensorValue('LIGHT', greenhouse.id)],
+    ['基质', getSensorValue('SOIL_MOISTURE', greenhouse.id), '阶段', greenhouse.cropStage || '未设置'],
   ]
 
   rows.forEach((row, index) => {
@@ -411,7 +411,7 @@ function createSensorNode(group, sensor, x, z, color) {
   addModelNode(sensor.modelNode, body)
 }
 
-function createSensorsAndCamera(group) {
+function createSensorsAndCamera(group, greenhouseId) {
   const positions = {
     SENSOR_TEMP_01: [-1.8, -1.9, 0x43c984],
     SENSOR_HUM_01: [1.8, -1.2, 0x4db8ff],
@@ -419,7 +419,7 @@ function createSensorsAndCamera(group) {
     SENSOR_LIGHT_01: [0, 0.2, 0xffdf70],
     SENSOR_SOIL_01: [2.2, 2.3, 0xff9d63],
   }
-  props.twinData.sensors.forEach((sensor) => {
+  props.twinData.sensors.filter((sensor) => sensor.greenhouseId === greenhouseId).forEach((sensor) => {
     const position = positions[sensor.modelNode]
     if (position) createSensorNode(group, sensor, position[0], position[1], position[2])
   })
@@ -447,7 +447,7 @@ function createGreenhouse(greenhouse, index) {
   createFan(group, greenhouse.id)
   createPumpAndTank(group, greenhouse.id)
   createLightsAndShade(group, greenhouse.id)
-  createSensorsAndCamera(group)
+  createSensorsAndCamera(group, greenhouse.id)
   scene.add(group)
 }
 
