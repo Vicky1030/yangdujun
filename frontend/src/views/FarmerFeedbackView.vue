@@ -34,7 +34,7 @@
           </div>
         </header>
 
-        <div class="messages">
+        <div ref="messagesRef" class="messages">
           <div
             v-for="message in messages"
             :key="message.id"
@@ -91,6 +91,7 @@ const messages = ref([])
 const draft = ref('')
 const imageData = ref('')
 const fileInput = ref(null)
+const messagesRef = ref(null)
 
 const itemKey = item => item.conversation_id || item.id || `${item.admin_user_id || item.farmer_user_id}`
 const displayName = item => isAdmin.value
@@ -146,8 +147,16 @@ const selectConversation = async (item, updateQuery = true) => {
     if (updateQuery) {
       router.replace({ path: route.path, query: { conversationId: id } })
     }
+    await scrollMessagesToBottom()
   } else if (updateQuery) {
     router.replace({ path: route.path })
+  }
+}
+
+const scrollMessagesToBottom = async () => {
+  await nextTick()
+  if (messagesRef.value) {
+    messagesRef.value.scrollTop = messagesRef.value.scrollHeight
   }
 }
 
@@ -193,7 +202,7 @@ const sendMessage = async () => {
     imageData.value = ''
     if (fileInput.value) fileInput.value.value = ''
     await loadConversations(payload.conversationId)
-    await nextTick()
+    await scrollMessagesToBottom()
   } finally {
     sending.value = false
   }
