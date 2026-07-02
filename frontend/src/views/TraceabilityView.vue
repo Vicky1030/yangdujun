@@ -8,9 +8,18 @@
         </div>
         <el-button v-if="isAdmin" type="primary" @click="openCreateBatch">新建批次</el-button>
       </div>
-      <div class="filters">
+      <div :class="['filters', { 'filters--admin': isAdmin }]">
         <el-input v-model.trim="filters.batchNo" clearable placeholder="批次码" />
-        <el-select v-model="filters.greenhouseId" clearable placeholder="大棚">
+        <el-select v-if="isAdmin" v-model="filters.farmerId" clearable placeholder="选择农户" @change="onFarmerChange">
+          <el-option v-for="item in farmers" :key="item.id" :label="userLabel(item)" :value="item.id" />
+        </el-select>
+        <el-select
+          v-model="filters.greenhouseId"
+          clearable
+          :disabled="isAdmin && !filters.farmerId"
+          :placeholder="isAdmin ? '选择该农户的大棚' : '大棚'"
+          @change="onGreenhouseChange"
+        >
           <el-option v-for="item in greenhouses" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
         <el-date-picker v-model="dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" />
@@ -109,6 +118,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { createBatch, createBatchEvent, fetchBatchDetail, fetchBatches, fetchGreenhouses } from '../services/greenhouse'
+import { fetchFarmerGreenhouses, fetchUsers } from '../services/user'
 import { useSessionStore } from '../stores/session'
 
 const route = useRoute()
@@ -117,6 +127,7 @@ const isAdmin = computed(() => session.profile?.role === 'ADMIN')
 const loading = ref(false)
 const saving = ref(false)
 const batches = ref([])
+const users = ref([])
 const greenhouses = ref([])
 const dateRange = ref([])
 const detailVisible = ref(false)
@@ -133,6 +144,8 @@ const filters = reactive({
 const batchForm = reactive({ greenhouseId: null, batchNo: '', batchName: '', cropName: '羊肚菌', status: 'RUNNING', startedAt: '', expectedHarvestAt: '', summary: '' })
 const eventForm = reactive({ eventCode: '', eventTitle: '', eventStatus: 'DONE', description: '', imageUrl: '' })
 
+const farmers = computed(() => users.value.filter(item => item.role_code === 'FARMER'))
+const userLabel = item => `${item.display_name || item.username}（${item.username}）`
 const statusText = status => ({ RUNNING: '进行中', DONE: '已完成', CLOSED: '已归档' }[status] || status)
 const statusTagType = status => ({ RUNNING: 'warning', DONE: 'success', CLOSED: 'info' }[status] || 'info')
 const formatTime = value => value ? new Date(value).toLocaleString('zh-CN') : ''
@@ -152,6 +165,16 @@ const load = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const onFarmerChange = async () => {
+  greenhouses.value = filters.farmerId ? await fetchFarmerGreenhouses(filters.farmerId) : []
+  filters.greenhouseId = null
+  await load()
+}
+
+const onGreenhouseChange = async () => {
+  await load()
 }
 
 const openDetail = async batch => {
@@ -201,7 +224,12 @@ const openEvent = event => {
 }
 
 onMounted(async () => {
-  greenhouses.value = await fetchGreenhouses()
+  if (isAdmin.value) {
+    users.value = await fetchUsers()
+    greenhouses.value = filters.farmerId ? await fetchFarmerGreenhouses(filters.farmerId) : []
+  } else {
+    greenhouses.value = await fetchGreenhouses()
+  }
   await load()
 })
 </script>
@@ -221,6 +249,9 @@ onMounted(async () => {
   align-items: center;
   justify-content: start;
   margin-top: 18px;
+}
+.filters--admin {
+  grid-template-columns: 220px 220px 240px 420px 86px;
 }
 .filters .el-input,
 .filters .el-select,

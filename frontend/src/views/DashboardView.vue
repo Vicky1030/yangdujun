@@ -1,10 +1,9 @@
 <template>
-  <div class="page" v-loading="loading">
+  <div class="page admin-dashboard" v-loading="loading">
     <section class="hero-panel">
       <div>
         <span class="eyebrow">管理员工作台</span>
         <h2>管理总览</h2>
-        <p>先选择农户，再查看该农户绑定大棚的环境、设备、告警和批次状态。</p>
       </div>
       <div class="query-box">
         <el-select v-model="farmerId" clearable placeholder="选择农户" style="width: 220px" @change="onFarmerChange">
@@ -44,19 +43,42 @@
       <div class="panel-head">
         <div>
           <h2 class="section-title">当前大棚环境态势</h2>
-          <p class="muted">{{ queried ? `当前数据来自 ${selectedGreenhouse?.name}` : '选择农户和大棚后，此卡片会浮动到总览下方展示。' }}</p>
+          <p class="muted">{{ queried ? `当前数据来自 ${selectedGreenhouse?.name}` : '选择农户和大棚后展示实时环境数据。' }}</p>
         </div>
+        <el-tag v-if="queried" type="success" effect="plain">{{ selectedGreenhouse?.cropStage || '生产监测' }}</el-tag>
       </div>
+
       <el-empty v-if="!queried" description="尚未查询大棚" />
       <div v-else class="env-content">
-        <div class="env-grid">
-          <div class="env-card"><span>空气温度</span><strong>{{ telemetry.airTemperature ?? '-' }} ℃</strong></div>
-          <div class="env-card"><span>空气湿度</span><strong>{{ telemetry.airHumidity ?? '-' }} %</strong></div>
-          <div class="env-card"><span>土壤温度</span><strong>{{ telemetry.soilTemperature ?? '-' }} ℃</strong></div>
-          <div class="env-card"><span>土壤湿度</span><strong>{{ telemetry.soilHumidity ?? '-' }} %</strong></div>
-          <div class="env-card"><span>pH 值</span><strong>{{ telemetry.phValue ?? '-' }}</strong></div>
-          <div class="env-card"><span>二氧化碳</span><strong>{{ telemetry.co2Ppm ?? '-' }} ppm</strong></div>
-          <div class="env-card"><span>光照强度</span><strong>{{ telemetry.lightLux ?? '-' }} lx</strong></div>
+        <div class="env-data-grid">
+          <div class="env-card">
+            <span>空气温度</span>
+            <strong>{{ telemetry.airTemperature ?? '-' }} ℃</strong>
+          </div>
+          <div class="env-card">
+            <span>空气湿度</span>
+            <strong>{{ telemetry.airHumidity ?? '-' }} %</strong>
+          </div>
+          <div class="env-card">
+            <span>土壤温度</span>
+            <strong>{{ telemetry.soilTemperature ?? '-' }} ℃</strong>
+          </div>
+          <div class="env-card">
+            <span>土壤湿度</span>
+            <strong>{{ telemetry.soilHumidity ?? '-' }} %</strong>
+          </div>
+          <div class="env-card">
+            <span>pH 值</span>
+            <strong>{{ telemetry.phValue ?? '-' }}</strong>
+          </div>
+          <div class="env-card">
+            <span>二氧化碳</span>
+            <strong>{{ telemetry.co2Ppm ?? '-' }} ppm</strong>
+          </div>
+          <div class="env-card">
+            <span>光照强度</span>
+            <strong>{{ telemetry.lightLux ?? '-' }} lx</strong>
+          </div>
         </div>
         <div class="camera-card">
           <div class="camera-card__screen">
@@ -68,9 +90,12 @@
       </div>
     </section>
 
-    <div class="split-grid">
+    <div class="split-grid dashboard-bottom">
       <section class="panel">
-        <h2 class="section-title">设备简况</h2>
+        <div class="panel-head compact">
+          <h2 class="section-title">设备简况</h2>
+          <el-button class="panel-more" @click="go('/devices')">查看设备</el-button>
+        </div>
         <el-table :data="overview.devices" style="width: 100%; margin-top: 12px">
           <el-table-column prop="name" label="设备名称" min-width="180" />
           <el-table-column prop="category" label="类别" width="130" />
@@ -81,7 +106,10 @@
         </el-table>
       </section>
       <section class="panel">
-        <h2 class="section-title">当前大棚告警</h2>
+        <div class="panel-head compact">
+          <h2 class="section-title">当前大棚告警</h2>
+          <el-button class="panel-more" @click="go('/alerts', { status: 'OPEN' })">查看告警</el-button>
+        </div>
         <div class="alert-list">
           <article v-for="alert in overview.activeAlerts" :key="alert.id">
             <el-tag :type="alert.level === 'CRITICAL' ? 'danger' : 'warning'">{{ alertLevel(alert.level) }}</el-tag>
@@ -175,66 +203,240 @@ watch(() => route.query.greenhouseId, async value => {
 </script>
 
 <style scoped>
-.hero-panel, .query-box, .panel-head {
+.hero-panel,
+.query-box,
+.panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
+
 .hero-panel {
-  padding: 28px;
+  padding: 26px 28px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(255,255,255,.9);
+  background: rgba(255, 255, 255, 0.9);
   box-shadow: var(--shadow);
 }
-.eyebrow { color: var(--brand-strong); font-weight: 900; }
-.hero-panel h2 { margin: 8px 0; font-size: 34px; }
-.hero-panel p { margin: 0; color: var(--muted); }
-.admin-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.env-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
-.summary-card, .env-card {
-  min-height: 128px;
-  padding: 20px;
+
+.query-box {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.eyebrow {
+  color: var(--brand-strong);
+  font-weight: 900;
+}
+
+.hero-panel h2 {
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-size: 34px;
+}
+
+.admin-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.summary-card {
+  min-height: 112px;
+  padding: 18px 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(255,255,255,.86);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(244, 252, 239, 0.86)),
+    radial-gradient(circle at 92% 8%, rgba(83, 184, 106, 0.12), transparent 34%);
   text-align: left;
   cursor: pointer;
+  box-shadow: 0 12px 28px rgba(42, 91, 48, 0.08);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
-.summary-card span, .env-card span { color: var(--muted); }
-.summary-card strong, .env-card strong { display: block; margin-top: 12px; font-size: 30px; }
-.summary-card.danger strong { color: var(--danger); }
-.env-panel { order: 10; transition: transform .24s ease, box-shadow .24s ease; }
-.env-panel--active { order: 0; transform: translateY(-4px); box-shadow: 0 22px 58px rgba(42,91,48,.18); }
-.env-content { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; }
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(83, 184, 106, 0.42);
+  box-shadow: 0 18px 38px rgba(42, 91, 48, 0.12);
+}
+
+.summary-card span,
+.env-card span {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.summary-card strong,
+.env-card strong {
+  display: block;
+  margin-top: 12px;
+  color: var(--ink);
+  font-size: 30px;
+  line-height: 1.12;
+}
+
+.summary-card small {
+  display: block;
+  margin-top: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.summary-card.danger strong {
+  color: var(--danger);
+}
+
+.env-panel {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.env-panel--active {
+  box-shadow: 0 22px 58px rgba(42, 91, 48, 0.16);
+}
+
+.env-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: stretch;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.env-data-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.env-card {
+  min-height: 124px;
+  padding: 18px;
+  border: 1px solid rgba(73, 125, 78, 0.16);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 24px rgba(42, 91, 48, 0.06);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.env-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(83, 184, 106, 0.44);
+  box-shadow: 0 16px 34px rgba(42, 91, 48, 0.12);
+}
+
 .camera-card {
-  border: 1px solid var(--line);
+  min-height: 262px;
+  border: 1px solid rgba(73, 125, 78, 0.24);
   border-radius: var(--radius);
   overflow: hidden;
   background: #10261b;
-  min-height: 170px;
 }
+
 .camera-card__screen {
   display: flex;
+  min-height: 262px;
   height: 100%;
-  min-height: 170px;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 18px;
+  padding: 20px;
   color: #fff;
   background:
-    linear-gradient(180deg, rgba(10, 30, 18, .1), rgba(10, 30, 18, .72)),
-    repeating-linear-gradient(135deg, rgba(107, 188, 117, .16) 0 1px, transparent 1px 18px);
+    linear-gradient(180deg, rgba(10, 30, 18, 0.08), rgba(10, 30, 18, 0.78)),
+    repeating-linear-gradient(135deg, rgba(107, 188, 117, 0.16) 0 1px, transparent 1px 18px);
 }
-.camera-card__screen span { color: #b8f4bf; font-weight: 900; }
-.camera-card__screen strong { margin-top: 8px; font-size: 22px; }
-.camera-card__screen small { margin-top: 8px; color: rgba(255,255,255,.72); }
-.alert-list { display: grid; gap: 12px; margin-top: 12px; }
-.alert-list article { display: flex; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,.7); }
-.alert-list p { margin: 6px 0 0; color: var(--muted); }
+
+.camera-card__screen span {
+  color: #b8f4bf;
+  font-weight: 900;
+}
+
+.camera-card__screen strong {
+  margin-top: 8px;
+  font-size: 22px;
+}
+
+.camera-card__screen small {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 700;
+}
+
+.dashboard-bottom {
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+}
+
+.panel-head.compact {
+  align-items: center;
+}
+
+.panel-more {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(73, 125, 78, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--brand-strong);
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.alert-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.alert-list article {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.alert-list p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+@media (max-width: 1280px) {
+  .env-content {
+    grid-template-columns: 1fr;
+  }
+
+  .env-data-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .camera-card,
+  .camera-card__screen {
+    min-height: 220px;
+  }
+}
+
 @media (max-width: 1100px) {
-  .admin-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .env-content { grid-template-columns: 1fr; }
+  .hero-panel,
+  .panel-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-bottom {
+    grid-template-columns: 1fr;
+  }
+
+  .env-data-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

@@ -37,25 +37,9 @@
             <el-input v-model="form.bio" type="textarea" :rows="4" />
           </el-form-item>
         </el-form>
-        <div v-if="!isAdmin" class="save-actions">
+        <div class="save-actions">
           <el-button class="save-button" type="primary" :loading="saving" @click="save">保存资料</el-button>
         </div>
-      </section>
-
-      <section v-if="isAdmin" class="panel settings-card">
-        <h3 class="card-title">账号开关</h3>
-        <div class="setting-row">
-          <div>
-            <strong>删除授权</strong>
-            <p>开启后，其他管理员可以删除此账号。</p>
-          </div>
-          <el-switch
-            v-model="form.allowAdminDelete"
-            active-text="允许删除"
-            inactive-text="不允许删除"
-          />
-        </div>
-        <el-button class="save-button" type="primary" :loading="saving" @click="save">保存资料</el-button>
       </section>
     </div>
   </div>
@@ -180,22 +164,6 @@ onMounted(load)
 .profile-stack { display: grid; gap: 18px; }
 .card-title { margin: 0 0 18px; color: var(--ink); font-size: 20px; }
 .profile-form { max-width: 980px; margin: 0 auto; }
-.settings-card { max-width: 980px; }
-.setting-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  align-items: center;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: rgba(255,255,255,.72);
-}
-.setting-row > div { min-width: 0; }
-.setting-row strong { color: var(--ink); }
-.setting-row p { margin: 6px 0 0; color: var(--muted); line-height: 1.6; }
-.setting-row :deep(.el-switch) { flex: 0 0 auto; min-width: 220px; justify-content: flex-end; }
-.setting-row :deep(.el-switch__label) { white-space: nowrap; }
 .save-actions {
   display: flex;
   justify-content: center;
@@ -205,8 +173,6 @@ onMounted(load)
 .save-actions .save-button { margin-top: 0; }
 @media (max-width: 760px) {
   .profile-head { align-items: flex-start; }
-  .setting-row { flex-direction: column; align-items: stretch; }
-  .setting-row :deep(.el-switch) { min-width: 0; justify-content: flex-start; }
   .save-button { width: 100%; }
 }
 </style>

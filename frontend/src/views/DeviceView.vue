@@ -5,7 +5,7 @@
         <div>
           <h2 class="section-title">设备管理</h2>
           <p class="muted">
-            {{ isAdmin ? '管理员按农户和大棚查看设备档案，新增、编辑和删除由农户完成。' : '管理自己绑定大棚中的设备，可新增、编辑和删除设备档案。' }}
+            {{ isAdmin ? '管理员新增、编辑和删除设备档案，具体设备操作由农户完成。' : '管理自己绑定大棚中的设备，可新增、编辑和删除设备档案。' }}
           </p>
         </div>
         <div class="head-actions">
@@ -15,7 +15,7 @@
           <el-select v-model="greenhouseId" clearable placeholder="选择大棚" style="width: 250px" @change="onGreenhouseChange">
             <el-option v-for="item in greenhouses" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
-          <el-button v-if="!isAdmin" type="primary" :disabled="!greenhouseId" @click="openCreate">新增设备</el-button>
+          <el-button type="primary" :disabled="!greenhouseId" @click="openCreate">新增设备</el-button>
         </div>
       </div>
 
@@ -28,25 +28,31 @@
           <h3>{{ cleanText(device.name, '设备信息待完善') }}</h3>
           <p>{{ cleanText(device.location, '未填写安装位置') }}</p>
           <p v-if="device.remark" class="remark">{{ cleanText(device.remark, '') }}</p>
-          <div v-if="!isAdmin" class="device-card__actions">
-            <el-button
-              size="small"
-              :type="device.status === 'RUNNING' ? 'warning' : 'success'"
-              :loading="commandingId === device.id"
-              @click="toggleDevice(device)"
-            >
-              {{ device.status === 'RUNNING' ? '停止' : '启动' }}
-            </el-button>
-            <el-button
-              size="small"
-              :disabled="device.status === 'MAINTENANCE'"
-              :loading="commandingId === device.id"
-              @click="commandDevice(device, 'MAINTENANCE')"
-            >
-              维护
-            </el-button>
-            <el-button size="small" @click="openEdit(device)">编辑</el-button>
-            <el-button size="small" type="danger" @click="removeDevice(device)">删除</el-button>
+          <div class="device-card__actions">
+            <template v-if="isAdmin">
+              <el-button size="small" @click="openEdit(device)">编辑档案</el-button>
+              <el-button size="small" type="danger" @click="removeDevice(device)">删除档案</el-button>
+            </template>
+            <template v-else>
+              <el-button
+                size="small"
+                :type="device.status === 'RUNNING' ? 'warning' : 'success'"
+                :loading="commandingId === device.id"
+                @click="toggleDevice(device)"
+              >
+                {{ device.status === 'RUNNING' ? '停止' : '启动' }}
+              </el-button>
+              <el-button
+                size="small"
+                :disabled="device.status === 'MAINTENANCE'"
+                :loading="commandingId === device.id"
+                @click="commandDevice(device, 'MAINTENANCE')"
+              >
+                维护
+              </el-button>
+              <el-button size="small" @click="openEdit(device)">编辑</el-button>
+              <el-button size="small" type="danger" @click="removeDevice(device)">删除</el-button>
+            </template>
           </div>
         </article>
         <el-empty v-if="!visibleDevices.length" description="当前大棚暂无设备" />
@@ -62,7 +68,7 @@
         </el-form-item>
         <el-form-item label="设备名称"><el-input v-model.trim="deviceForm.name" /></el-form-item>
         <el-form-item label="设备类别"><el-input v-model.trim="deviceForm.category" placeholder="如：通风、灌溉、环境传感器" /></el-form-item>
-        <el-form-item label="设备状态">
+        <el-form-item v-if="!isAdmin" label="设备状态">
           <el-select v-model="deviceForm.status" style="width: 100%">
             <el-option label="运行中" value="RUNNING" />
             <el-option label="已停止" value="STOPPED" />

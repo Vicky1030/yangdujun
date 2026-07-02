@@ -5,11 +5,21 @@
         <div>
           <h2 class="section-title">告警中心</h2>
           <p class="muted">
-            {{ isAdmin ? '管理员查看所有大棚告警，并通过命令处置把处理建议发送给对应农户。' : '查看自己大棚的告警，完成处理后系统会自动通知管理员。' }}
+            {{ isAdmin ? '管理员查看所有大棚告警，并将处置建议发送给对应农户。' : '查看自己大棚的告警，完成处理后系统会自动通知管理员。' }}
           </p>
         </div>
         <div class="head-actions">
-          <el-select v-model="greenhouseId" clearable placeholder="全部大棚" style="width: 220px" @change="onFilterChange">
+          <el-select v-if="isAdmin" v-model="farmerId" clearable placeholder="选择农户" style="width: 220px" @change="onFarmerChange">
+            <el-option v-for="item in farmers" :key="item.id" :label="userLabel(item)" :value="item.id" />
+          </el-select>
+          <el-select
+            v-model="greenhouseId"
+            clearable
+            :disabled="isAdmin && !farmerId"
+            :placeholder="isAdmin ? '选择该农户的大棚' : '全部大棚'"
+            style="width: 220px"
+            @change="onFilterChange"
+          >
             <el-option v-for="item in greenhouses" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
           <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 160px" @change="syncQuery">
@@ -96,7 +106,7 @@
             <el-option v-for="device in commandDevices" :key="device.id" :label="cleanText(device.name, '设备')" :value="device.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="处置命令">
+        <el-form-item label="处置建议">
           <el-select v-model="commandForm.command" style="width: 100%">
             <el-option label="启动设备" value="START" />
             <el-option label="关闭设备" value="STOP" />
@@ -109,7 +119,7 @@
         <el-checkbox v-model="commandForm.notifyFarmer">发送到该农户的问题反馈聊天</el-checkbox>
         <div class="dialog-actions">
           <el-button @click="commandDialog = false">取消</el-button>
-          <el-button type="primary" :loading="saving" @click="submitCommand">发送命令</el-button>
+          <el-button type="primary" :loading="saving" @click="submitCommand">下发建议</el-button>
         </div>
       </el-form>
     </el-dialog>
@@ -135,6 +145,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { alertCommand, fetchAlertDetails, fetchDevices, fetchGreenhouses, handleAlert } from '../services/greenhouse'
+import { fetchFarmerGreenhouses, fetchUsers } from '../services/user'
 import { useSessionStore } from '../stores/session'
 
 const route = useRoute()
@@ -146,8 +157,10 @@ const saving = ref(false)
 const handleDialog = ref(false)
 const commandDialog = ref(false)
 const detailDialog = ref(false)
+const farmerId = ref(route.query.farmerId ? Number(route.query.farmerId) : null)
 const greenhouseId = ref(route.query.greenhouseId ? Number(route.query.greenhouseId) : null)
 const statusFilter = ref(route.query.status || '')
+const users = ref([])
 const greenhouses = ref([])
 const alerts = ref([])
 const selectedAlert = ref(null)
@@ -156,7 +169,13 @@ const commandDevices = ref([])
 const handleForm = reactive({ status: 'RESOLVED', handler: '', deviceId: null, command: 'START', note: '' })
 const commandForm = reactive({ deviceId: null, command: 'STOP', note: '', notifyFarmer: true })
 
-const filteredAlerts = computed(() => statusFilter.value ? alerts.value.filter(item => item.status === statusFilter.value) : alerts.value)
+const farmers = computed(() => users.value.filter(item => item.role_code === 'FARMER'))
+const userLabel = item => `${item.display_name || item.username}（${item.username}）`
+const filteredAlerts = computed(() => alerts.value.filter(item => {
+  if (statusFilter.value && item.status !== statusFilter.value) return false
+  if (isAdmin.value && farmerId.value && Number(item.farmerId) !== Number(farmerId.value)) return false
+  return true
+}))
 const levelText = level => ({ CRITICAL: '严重', WARNING: '警告', INFO: '提示' }[level] || level || '-')
 const levelTag = level => level === 'CRITICAL' ? 'danger' : level === 'WARNING' ? 'warning' : 'info'
 const statusText = status => ({ OPEN: '待处理', ACKNOWLEDGED: '已下发建议', RESOLVED: '农户已解决' }[status] || status || '-')
@@ -178,7 +197,7 @@ const syncQuery = () => {
   router.replace({
     path: '/alerts',
     query: {
-      ...(route.query.farmerId ? { farmerId: route.query.farmerId } : {}),
+      ...(isAdmin.value && farmerId.value ? { farmerId: farmerId.value } : {}),
       ...(greenhouseId.value ? { greenhouseId: greenhouseId.value } : {}),
       ...(statusFilter.value ? { status: statusFilter.value } : {})
     }
@@ -195,6 +214,13 @@ const loadAlerts = async () => {
 }
 
 const onFilterChange = async () => {
+  syncQuery()
+  await loadAlerts()
+}
+
+const onFarmerChange = async () => {
+  greenhouses.value = farmerId.value ? await fetchFarmerGreenhouses(farmerId.value) : []
+  greenhouseId.value = null
   syncQuery()
   await loadAlerts()
 }
@@ -252,7 +278,7 @@ const defaultCommand = alert => {
 }
 
 const submitCommand = async () => {
-  if (!commandForm.command) return ElMessage.warning('请选择处置命令')
+  if (!commandForm.command) return ElMessage.warning('请选择处置建议')
   saving.value = true
   try {
     await alertCommand(selectedAlert.value.id, commandForm)
@@ -265,7 +291,12 @@ const submitCommand = async () => {
 }
 
 onMounted(async () => {
-  greenhouses.value = await fetchGreenhouses()
+  if (isAdmin.value) {
+    users.value = await fetchUsers()
+    greenhouses.value = farmerId.value ? await fetchFarmerGreenhouses(farmerId.value) : []
+  } else {
+    greenhouses.value = await fetchGreenhouses()
+  }
   await loadAlerts()
 })
 </script>

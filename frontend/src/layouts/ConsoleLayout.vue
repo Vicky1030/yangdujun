@@ -1,5 +1,5 @@
 <template>
-  <el-container class="console">
+  <el-container :class="['console', { 'console--admin': isAdmin }]">
     <el-aside width="248px" class="console__aside">
       <div class="brand">
         <div class="brand__mark">菌</div>
@@ -273,4 +273,18 @@ watch(() => route.fullPath, loadUnread)
 }
 .logout-item { color: #d44444; font-weight: 900; }
 .console__main { min-height: calc(100vh - 84px); padding: 24px; }
+
+.console--admin :deep(.el-button:not(.is-link):not(.is-text):not(.el-button--danger)) {
+  border-color: rgba(83, 184, 106, 0.24);
+  background: rgba(83, 184, 106, 0.1);
+  color: var(--brand-strong);
+  box-shadow: 0 10px 24px rgba(83, 184, 106, 0.12);
+}
+
+.console--admin :deep(.el-button:not(.is-link):not(.is-text):not(.el-button--danger):hover),
+.console--admin :deep(.el-button:not(.is-link):not(.is-text):not(.el-button--danger):focus) {
+  border-color: rgba(83, 184, 106, 0.42);
+  background: rgba(83, 184, 106, 0.16);
+  color: var(--brand-strong);
+}
 </style>

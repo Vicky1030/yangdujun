@@ -12,10 +12,28 @@
     </div>
 
     <div class="filters">
-      <el-input v-model.trim="filters.keyword" clearable placeholder="账号 / 手机号 / 邮箱 / 昵称" />
-      <el-input v-model.trim="filters.greenhouse" clearable placeholder="控制的大棚名称" />
-      <el-button type="primary" @click="load">查询</el-button>
-      <el-button @click="resetFilters">重置</el-button>
+      <label class="filter-field">
+        <span>关键词</span>
+        <el-input
+          v-model.trim="filters.keyword"
+          clearable
+          placeholder="账号、手机号、邮箱、昵称"
+          @keyup.enter="load"
+        />
+      </label>
+      <label class="filter-field">
+        <span>绑定大棚</span>
+        <el-input
+          v-model.trim="filters.greenhouse"
+          clearable
+          placeholder="输入大棚名称"
+          @keyup.enter="load"
+        />
+      </label>
+      <div class="filter-actions">
+        <el-button type="primary" @click="load">查询</el-button>
+        <el-button @click="resetFilters">重置</el-button>
+      </div>
     </div>
 
     <el-table :data="users" style="width: 100%; margin-top: 16px" row-key="id">
@@ -41,9 +59,11 @@
       </el-table-column>
       <el-table-column label="操作" width="280">
         <template #default="{ row }">
-          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-          <el-button v-if="row.role_code === 'FARMER'" link type="success" @click="openBind(row)">大棚绑定</el-button>
-          <el-button link type="danger" @click="removeUser(row)">删除</el-button>
+          <div class="table-actions">
+            <el-button class="table-action table-action--edit" @click="openEdit(row)">编辑</el-button>
+            <el-button v-if="row.role_code === 'FARMER'" class="table-action table-action--bind" @click="openBind(row)">大棚绑定</el-button>
+            <el-button class="table-action table-action--danger" @click="removeUser(row)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -88,7 +108,7 @@
             <strong>{{ item.name }}</strong>
             <p>{{ item.location || '-' }} · {{ item.crop_stage || '未填写阶段' }}</p>
           </div>
-          <el-button type="danger" plain size="small" @click="unbindOne(item)">解除绑定</el-button>
+          <el-button class="unbind-button" size="small" @click="unbindOne(item)">解除绑定</el-button>
         </article>
       </div>
       <div class="dialog-actions">
@@ -240,11 +260,91 @@ onMounted(load)
   gap: 16px;
 }
 .filters {
-  justify-content: flex-start;
+  align-items: end;
+  justify-content: start;
   flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
   margin-top: 18px;
+  padding: 12px;
+  border: 1px solid rgba(73, 125, 78, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.48);
 }
-.filters .el-input { max-width: 260px; }
+.filter-field {
+  display: grid;
+  gap: 6px;
+  width: 280px;
+}
+.filter-field span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+.filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.filter-actions :deep(.el-button) {
+  min-width: 78px;
+  height: 40px;
+  margin-left: 0;
+}
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.table-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+.table-action {
+  height: 30px;
+  min-width: 56px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: none;
+}
+.table-action--edit {
+  border-color: rgba(83, 184, 106, 0.2);
+  background: rgba(83, 184, 106, 0.1);
+  color: var(--brand-strong);
+}
+.table-action--bind {
+  border-color: rgba(53, 184, 166, 0.22);
+  background: rgba(53, 184, 166, 0.1);
+  color: #258877;
+}
+.table-action--danger,
+.unbind-button {
+  border-color: rgba(230, 79, 90, 0.22);
+  background: rgba(230, 79, 90, 0.08);
+  color: #d9535d;
+}
+.table-action--edit:hover,
+.table-action--edit:focus {
+  border-color: rgba(83, 184, 106, 0.42);
+  background: rgba(83, 184, 106, 0.16);
+  color: var(--brand-strong);
+}
+.table-action--bind:hover,
+.table-action--bind:focus {
+  border-color: rgba(53, 184, 166, 0.42);
+  background: rgba(53, 184, 166, 0.16);
+  color: #258877;
+}
+.table-action--danger:hover,
+.table-action--danger:focus,
+.unbind-button:hover,
+.unbind-button:focus {
+  border-color: rgba(230, 79, 90, 0.38);
+  background: rgba(230, 79, 90, 0.14);
+  color: #c9444f;
+}
 .dialog-actions { justify-content: flex-end; margin-top: 18px; }
 .bound-list {
   display: grid;
@@ -262,4 +362,11 @@ onMounted(load)
   background: rgba(255,255,255,.72);
 }
 .bound-list p { margin: 4px 0 0; color: var(--muted); }
+.unbind-button {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  box-shadow: none;
+}
 </style>
