@@ -82,6 +82,15 @@
         </div>
         <div class="camera-card">
           <div class="camera-card__screen">
+            <video
+              class="camera-card__video"
+              src="/media/a01-camera-demo.mp4"
+              autoplay
+              muted
+              loop
+              playsinline
+              preload="metadata"
+            ></video>
             <span>实时摄像头</span>
             <strong>{{ selectedGreenhouse?.name }}</strong>
             <small>当前为模拟画面，后续可接入 RTSP/WebRTC 硬件流。</small>
@@ -337,6 +346,7 @@ watch(() => route.query.greenhouseId, async value => {
 }
 
 .camera-card__screen {
+  position: relative;
   display: flex;
   min-height: 262px;
   height: 100%;
@@ -349,17 +359,42 @@ watch(() => route.query.greenhouseId, async value => {
     repeating-linear-gradient(135deg, rgba(107, 188, 117, 0.16) 0 1px, transparent 1px 18px);
 }
 
+.camera-card__screen::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(180deg, rgba(10, 30, 18, 0.06), rgba(10, 30, 18, 0.82)),
+    linear-gradient(90deg, rgba(10, 30, 18, 0.22), transparent 42%);
+}
+
+.camera-card__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .camera-card__screen span {
+  position: relative;
+  z-index: 2;
   color: #b8f4bf;
   font-weight: 900;
 }
 
 .camera-card__screen strong {
+  position: relative;
+  z-index: 2;
   margin-top: 8px;
   font-size: 22px;
 }
 
 .camera-card__screen small {
+  position: relative;
+  z-index: 2;
   margin-top: 8px;
   color: rgba(255, 255, 255, 0.72);
   font-weight: 700;
