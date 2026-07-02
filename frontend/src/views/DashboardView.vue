@@ -81,21 +81,29 @@
           </div>
         </div>
         <div class="camera-card">
-          <div class="camera-card__screen">
+          <button
+            class="camera-card__screen"
+            :class="{ 'camera-card__screen--playing': cameraPlaying }"
+            type="button"
+            @click="playCamera"
+          >
             <video
+              ref="cameraVideoRef"
               class="camera-card__video"
               src="/media/a01-camera-demo.mp4?v=20260703"
-              autoplay
-              controls
               muted
               loop
               playsinline
               preload="auto"
+              @play="cameraPlaying = true"
+              @pause="cameraPlaying = false"
             ></video>
-            <span>实时摄像头</span>
-            <strong>{{ selectedGreenhouse?.name }}</strong>
-            <small>当前为模拟画面，后续可接入 RTSP/WebRTC 硬件流。</small>
-          </div>
+            <template v-if="!cameraPlaying">
+              <span>实时摄像头</span>
+              <strong>{{ selectedGreenhouse?.name }}</strong>
+              <small>当前为模拟画面，点击播放实时监控。</small>
+            </template>
+          </button>
         </div>
       </div>
     </section>
@@ -147,6 +155,8 @@ const greenhouseId = ref(route.query.greenhouseId ? Number(route.query.greenhous
 const farmerGreenhouses = ref([])
 const queried = ref(false)
 const overview = ref({ greenhouses: [], devices: [], activeAlerts: [], currentTelemetry: {} })
+const cameraVideoRef = ref(null)
+const cameraPlaying = ref(false)
 
 const farmers = computed(() => users.value.filter(item => item.role_code === 'FARMER'))
 const telemetry = computed(() => overview.value.currentTelemetry || {})
@@ -170,6 +180,11 @@ const persistQuery = () => {
 }
 
 const go = (path, extra = {}) => router.push({ path, query: currentQuery(extra) })
+
+const playCamera = async () => {
+  if (!cameraVideoRef.value || cameraPlaying.value) return
+  await cameraVideoRef.value.play()
+}
 
 const onFarmerChange = async () => {
   greenhouseId.value = null
@@ -350,15 +365,19 @@ watch(() => route.query.greenhouseId, async value => {
   position: relative;
   isolation: isolate;
   display: flex;
+  width: 100%;
   min-height: 262px;
   height: 100%;
   flex-direction: column;
   justify-content: flex-end;
   padding: 20px;
+  border: 0;
   color: #fff;
   background:
     linear-gradient(180deg, rgba(10, 30, 18, 0.08), rgba(10, 30, 18, 0.78)),
     repeating-linear-gradient(135deg, rgba(107, 188, 117, 0.16) 0 1px, transparent 1px 18px);
+  text-align: left;
+  cursor: pointer;
 }
 
 .camera-card__screen::after {
@@ -370,6 +389,15 @@ watch(() => route.query.greenhouseId, async value => {
   background:
     linear-gradient(180deg, rgba(10, 30, 18, 0.06), rgba(10, 30, 18, 0.82)),
     linear-gradient(90deg, rgba(10, 30, 18, 0.22), transparent 42%);
+}
+
+.camera-card__screen--playing {
+  padding: 0;
+  cursor: default;
+}
+
+.camera-card__screen--playing::after {
+  display: none;
 }
 
 .camera-card__video {
