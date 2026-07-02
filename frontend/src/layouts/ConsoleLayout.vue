@@ -117,10 +117,11 @@ const route = useRoute()
 const session = useSessionStore()
 const unreadCount = ref(0)
 const firstConversationId = ref('')
-let timer = null
+const currentDate = ref(new Date().toLocaleString('zh-CN'))
+let unreadTimer = null
+let clockTimer = null
 
 const isAdmin = computed(() => session.profile?.role === 'ADMIN')
-const currentDate = computed(() => new Date().toLocaleString('zh-CN'))
 const operatorName = computed(() => session.profile?.username || '用户')
 
 const loadUnread = async () => {
@@ -150,11 +151,15 @@ const logout = () => {
 
 onMounted(() => {
   loadUnread()
-  timer = window.setInterval(loadUnread, 15000)
+  unreadTimer = window.setInterval(loadUnread, 15000)
+  clockTimer = window.setInterval(() => {
+    currentDate.value = new Date().toLocaleString('zh-CN')
+  }, 1000)
 })
 
 onBeforeUnmount(() => {
-  if (timer) window.clearInterval(timer)
+  if (unreadTimer) window.clearInterval(unreadTimer)
+  if (clockTimer) window.clearInterval(clockTimer)
 })
 
 watch(() => route.fullPath, loadUnread)
