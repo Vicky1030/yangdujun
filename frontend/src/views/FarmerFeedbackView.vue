@@ -51,7 +51,13 @@
         </div>
 
         <footer class="composer">
-          <el-input v-model="draft" type="textarea" :rows="2" placeholder="输入反馈内容或处理意见" />
+          <el-input
+            v-model="draft"
+            type="textarea"
+            :rows="2"
+            placeholder="输入反馈内容或处理意见"
+            @keydown.enter="submitOnEnter"
+          />
           <div class="upload-preview">
             <input ref="fileInput" type="file" accept="image/*" hidden @change="onImageChange" />
             <button type="button" class="upload-button" @click="fileInput?.click()">上传图片</button>
@@ -155,6 +161,12 @@ const onImageChange = event => {
   const reader = new FileReader()
   reader.onload = () => { imageData.value = reader.result }
   reader.readAsDataURL(file)
+}
+
+const submitOnEnter = event => {
+  if (event.shiftKey || event.isComposing) return
+  event.preventDefault()
+  if (!sending.value) sendMessage()
 }
 
 const sendMessage = async () => {
