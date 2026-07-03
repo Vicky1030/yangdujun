@@ -153,9 +153,21 @@ public class KingbaseGreenhouseRepository implements GreenhouseRepository {
                 rs.getString("title"),
                 rs.getString("description"),
                 AlertLevel.valueOf(rs.getString("level")),
-                AlertStatus.valueOf(rs.getString("status")),
+                mapAlertStatus(rs.getString("status")),
                 rs.getTimestamp("occurred_at").toLocalDateTime()
         );
+    }
+
+    private AlertStatus mapAlertStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return AlertStatus.OPEN;
+        }
+        return switch (status.trim().toUpperCase()) {
+            case "ACTIVE", "PENDING", "UNHANDLED" -> AlertStatus.OPEN;
+            case "CONFIRMED", "HANDLING", "HANDLED" -> AlertStatus.ACKNOWLEDGED;
+            case "DONE", "CLOSED" -> AlertStatus.RESOLVED;
+            default -> AlertStatus.valueOf(status.trim().toUpperCase());
+        };
     }
 
     private AlertDetail mapAlertDetail(ResultSet rs, int rowNum) throws SQLException {

@@ -156,6 +156,35 @@ public class DatabaseInitializer implements ApplicationRunner {
     }
 
     private void normalizeLegacyAlertHandling() {
+        int statusUpdated = jdbcTemplate.update("""
+                UPDATE greenhouse_alert
+                SET status = CASE UPPER(status)
+                    WHEN 'ACTIVE' THEN 'OPEN'
+                    WHEN 'PENDING' THEN 'OPEN'
+                    WHEN 'UNHANDLED' THEN 'OPEN'
+                    WHEN 'CONFIRMED' THEN 'ACKNOWLEDGED'
+                    WHEN 'HANDLING' THEN 'ACKNOWLEDGED'
+                    WHEN 'HANDLED' THEN 'ACKNOWLEDGED'
+                    WHEN 'DONE' THEN 'RESOLVED'
+                    WHEN 'CLOSED' THEN 'RESOLVED'
+                    ELSE UPPER(status)
+                END,
+                updated_at = CURRENT_TIMESTAMP
+                WHERE UPPER(status) IN (
+                    'ACTIVE',
+                    'PENDING',
+                    'UNHANDLED',
+                    'CONFIRMED',
+                    'HANDLING',
+                    'HANDLED',
+                    'DONE',
+                    'CLOSED'
+                )
+                """);
+        if (statusUpdated > 0) {
+            log.info("Normalized legacy alert status rows: count={}", statusUpdated);
+        }
+
         int updated = jdbcTemplate.update("""
                 UPDATE greenhouse_alert
                 SET handled_by = NULL,
