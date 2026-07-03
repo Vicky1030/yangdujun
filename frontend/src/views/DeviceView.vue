@@ -34,22 +34,42 @@
               <el-button size="small" type="danger" @click="removeDevice(device)">删除档案</el-button>
             </template>
             <template v-else>
-              <el-button
-                size="small"
-                :type="device.status === 'RUNNING' ? 'warning' : 'success'"
-                :loading="commandingId === device.id"
-                @click="toggleDevice(device)"
-              >
-                {{ device.status === 'RUNNING' ? '停止' : '启动' }}
-              </el-button>
-              <el-button
-                size="small"
-                :disabled="device.status === 'MAINTENANCE'"
-                :loading="commandingId === device.id"
-                @click="commandDevice(device, 'MAINTENANCE')"
-              >
-                维护
-              </el-button>
+              <template v-if="isFanDevice(device)">
+                <el-select
+                  v-model="fanLevels[device.id]"
+                  class="fan-level-select"
+                  size="small"
+                  :disabled="commandingId === device.id"
+                >
+                  <el-option v-for="level in fanLevelOptions" :key="level" :label="`${level} 档`" :value="level" />
+                </el-select>
+                <el-button
+                  size="small"
+                  type="success"
+                  :loading="commandingId === device.id"
+                  @click="setFanLevel(device)"
+                >
+                  下发
+                </el-button>
+              </template>
+              <template v-else>
+                <el-button
+                  size="small"
+                  :type="device.status === 'RUNNING' ? 'warning' : 'success'"
+                  :loading="commandingId === device.id"
+                  @click="toggleDevice(device)"
+                >
+                  {{ device.status === 'RUNNING' ? '停止' : '启动' }}
+                </el-button>
+                <el-button
+                  size="small"
+                  :disabled="device.status === 'MAINTENANCE'"
+                  :loading="commandingId === device.id"
+                  @click="commandDevice(device, 'MAINTENANCE')"
+                >
+                  维护
+                </el-button>
+              </template>
               <el-button size="small" @click="openEdit(device)">编辑</el-button>
               <el-button size="small" type="danger" @click="removeDevice(device)">删除</el-button>
             </template>
@@ -109,6 +129,8 @@ const devices = ref([])
 const deviceDialog = ref(false)
 const editingId = ref(null)
 const deviceForm = reactive({ greenhouseId: null, name: '', category: '', status: 'STOPPED', location: '', remark: '', autoMode: true, healthScore: 100 })
+const fanLevels = reactive({})
+const fanLevelOptions = Array.from({ length: 10 }, (_, index) => index)
 
 const farmers = computed(() => users.value.filter(item => item.role_code === 'FARMER'))
 const visibleDevices = computed(() => devices.value.filter(item => !looksInvalid(item.name) && !looksInvalid(item.category)))
@@ -123,6 +145,10 @@ const looksInvalid = value => {
 const cleanText = (value, fallback) => {
   if (!value || looksInvalid(value)) return fallback
   return String(value).replace(/CO2/g, 'CO₂')
+}
+const isFanDevice = device => {
+  const text = `${device.name || ''} ${device.category || ''} ${device.typeCode || device.type_code || ''}`.toLowerCase()
+  return text.includes('fan') || text.includes('feng') || text.includes('风机') || text.includes('通风')
 }
 
 const syncQuery = () => {
@@ -166,6 +192,11 @@ const loadDevices = async () => {
   loading.value = true
   try {
     devices.value = await fetchDevices(greenhouseId.value)
+    devices.value.forEach(device => {
+      if (isFanDevice(device) && fanLevels[device.id] === undefined) {
+        fanLevels[device.id] = device.status === 'RUNNING' ? 5 : 0
+      }
+    })
   } finally {
     loading.value = false
   }
@@ -198,9 +229,25 @@ const commandDevice = async (device, command) => {
     await sendDeviceCommand({
       deviceId: device.id,
       command,
-      value: `${commandText(command)}：${cleanText(device.name, '设备')}`
+      value: command
     })
     ElMessage.success(`${cleanText(device.name, '设备')}已${commandText(command)}`)
+    await loadDevices()
+  } finally {
+    commandingId.value = null
+  }
+}
+
+const setFanLevel = async device => {
+  const level = Number(fanLevels[device.id] ?? 0)
+  commandingId.value = device.id
+  try {
+    await sendDeviceCommand({
+      deviceId: device.id,
+      command: 'FENGDEGREE',
+      value: String(Math.max(0, Math.min(9, level)))
+    })
+    ElMessage.success(`${cleanText(device.name, '风机')}已下发 ${Math.max(0, Math.min(9, level))} 档`)
     await loadDevices()
   } finally {
     commandingId.value = null
@@ -260,5 +307,7 @@ onMounted(async () => {
 .device-card__actions :deep(.el-button) { min-width: 62px; font-weight: 700; }
 .device-card__actions :deep(.el-button + .el-button) { margin-left: 0; }
 .device-card__actions :deep(.el-button--danger) { color: #fff; font-weight: 800; background: #e95a5a; border-color: #e95a5a; }
+.fan-level-select { width: 92px; }
+.fan-level-select :deep(.el-select__wrapper) { min-height: 32px; }
 .dialog-actions { justify-content: flex-end; }
 </style>

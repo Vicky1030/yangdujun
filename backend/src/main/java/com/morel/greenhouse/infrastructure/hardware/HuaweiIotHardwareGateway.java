@@ -145,13 +145,13 @@ public class HuaweiIotHardwareGateway implements HardwareGateway {
     }
 
     private HuaweiCommand startCommand(DeviceInfo device, String value) {
-        if ("VENTILATION_FAN".equalsIgnoreCase(device.typeCode()) || containsAny(device, "fan", "feng")) {
+        if ("VENTILATION_FAN".equalsIgnoreCase(device.typeCode()) || containsAny(device, "fan", "feng", "风机", "通风")) {
             return new HuaweiCommand("Fengdegree", "fengdegree", numericValue(value, 5));
         }
-        if ("IRRIGATION_PUMP".equalsIgnoreCase(device.typeCode()) || containsAny(device, "pump", "bump")) {
+        if ("IRRIGATION_PUMP".equalsIgnoreCase(device.typeCode()) || containsAny(device, "pump", "bump", "水泵", "灌溉")) {
             return new HuaweiCommand("BUMP", "bump", "ON");
         }
-        if (containsAny(device, "light", "lamp")) {
+        if (containsAny(device, "light", "lamp", "灯", "补光")) {
             return new HuaweiCommand("Light", "light", "ON");
         }
         if (containsAny(device, "board")) {
@@ -161,13 +161,13 @@ public class HuaweiIotHardwareGateway implements HardwareGateway {
     }
 
     private HuaweiCommand stopCommand(DeviceInfo device) {
-        if ("VENTILATION_FAN".equalsIgnoreCase(device.typeCode()) || containsAny(device, "fan", "feng")) {
+        if ("VENTILATION_FAN".equalsIgnoreCase(device.typeCode()) || containsAny(device, "fan", "feng", "风机", "通风")) {
             return new HuaweiCommand("Fengdegree", "fengdegree", 0);
         }
-        if ("IRRIGATION_PUMP".equalsIgnoreCase(device.typeCode()) || containsAny(device, "pump", "bump")) {
+        if ("IRRIGATION_PUMP".equalsIgnoreCase(device.typeCode()) || containsAny(device, "pump", "bump", "水泵", "灌溉")) {
             return new HuaweiCommand("BUMP", "bump", "OFF");
         }
-        if (containsAny(device, "light", "lamp")) {
+        if (containsAny(device, "light", "lamp", "灯", "补光")) {
             return new HuaweiCommand("Light", "light", "OFF");
         }
         if (containsAny(device, "board")) {
@@ -199,9 +199,10 @@ public class HuaweiIotHardwareGateway implements HardwareGateway {
             return defaultValue;
         }
         try {
-            return Integer.valueOf(value);
+            int parsed = Integer.parseInt(value.trim());
+            return Math.max(0, Math.min(9, parsed));
         } catch (NumberFormatException ignored) {
-            return value;
+            return defaultValue;
         }
     }
 
