@@ -116,7 +116,16 @@
             <el-button class="panel-more" @click="$router.push('/alerts')">查看全部</el-button>
           </div>
           <div class="alert-list">
-            <article v-for="alert in overview.activeAlerts" :key="alert.id">
+            <article
+              v-for="alert in latestActiveAlerts"
+              :key="alert.id"
+              class="alert-list__item"
+              role="button"
+              tabindex="0"
+              @click="goAlert(alert)"
+              @keydown.enter.prevent="goAlert(alert)"
+              @keydown.space.prevent="goAlert(alert)"
+            >
               <el-tag :type="alert.level === 'CRITICAL' ? 'danger' : 'warning'" size="small">{{ levelText(alert.level) }}</el-tag>
               <div>
                 <strong>{{ alert.title }}</strong>
@@ -164,11 +173,13 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { createGreenhouse, fetchOverview } from '../services/greenhouse'
 import { useSessionStore } from '../stores/session'
 
 const session = useSessionStore()
+const router = useRouter()
 const loading = ref(false)
 const savingGreenhouse = ref(false)
 const greenhouseDialog = ref(false)
@@ -189,10 +200,19 @@ const deviceCount = computed(() => overview.value.devices?.length || 0)
 const unresolvedAlertCount = computed(() => overview.value.productionSummary?.unresolvedAlertCount ?? overview.value.activeAlerts?.length ?? 0)
 const batchCount = computed(() => overview.value.productionSummary?.batchCount || 0)
 const telemetryMetricCount = computed(() => 7)
+const latestActiveAlerts = computed(() => sortByAlertTime(overview.value.activeAlerts).slice(0, 4))
 
 const statusText = status => ({ RUNNING: '运行中', STOPPED: '已停止', MAINTENANCE: '维护中' }[status] || status)
 const deviceTag = status => status === 'RUNNING' ? 'success' : status === 'MAINTENANCE' ? 'warning' : 'info'
 const levelText = level => ({ CRITICAL: '严重', WARNING: '警告', INFO: '提示' }[level] || level)
+const sortByAlertTime = alerts => [...(alerts || [])].sort((a, b) => new Date(b.occurredAt || b.createdAt || 0) - new Date(a.occurredAt || a.createdAt || 0))
+const goAlert = alert => {
+  const query = {
+    status: 'OPEN',
+    ...(alert.greenhouseId || greenhouseId.value ? { greenhouseId: alert.greenhouseId || greenhouseId.value } : {})
+  }
+  router.push({ path: '/alerts', query })
+}
 
 const temperatureAdvice = computed(() => {
   const value = telemetry.value.airTemperature
@@ -500,6 +520,17 @@ onBeforeUnmount(() => {
 .task-list strong { color: var(--ink); font-size: 16px; }
 .alert-list article { padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255, 255, 255, 0.72); }
 .alert-list article { display: flex; gap: 12px; }
+.alert-list__item {
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.alert-list__item:hover,
+.alert-list__item:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(83, 184, 106, 0.4);
+  box-shadow: 0 14px 30px rgba(42, 91, 48, 0.12);
+  outline: none;
+}
 .task-list p,
 .alert-list p { margin: 6px 0 0; color: var(--muted); line-height: 1.7; }
 .home-device-grid {

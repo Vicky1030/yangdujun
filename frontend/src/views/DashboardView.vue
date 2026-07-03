@@ -130,7 +130,16 @@
           <el-button class="panel-more" @click="go('/alerts', { status: 'OPEN' })">查看告警</el-button>
         </div>
         <div class="alert-list">
-          <article v-for="alert in overview.activeAlerts" :key="alert.id">
+          <article
+            v-for="alert in latestActiveAlerts"
+            :key="alert.id"
+            class="alert-list__item"
+            role="button"
+            tabindex="0"
+            @click="goAlert(alert)"
+            @keydown.enter.prevent="goAlert(alert)"
+            @keydown.space.prevent="goAlert(alert)"
+          >
             <el-tag :type="alert.level === 'CRITICAL' ? 'danger' : 'warning'">{{ alertLevel(alert.level) }}</el-tag>
             <div><strong>{{ alert.title }}</strong><p>{{ alert.description }}</p></div>
           </article>
@@ -162,9 +171,11 @@ const cameraPlaying = ref(false)
 const farmers = computed(() => users.value.filter(item => item.role_code === 'FARMER'))
 const telemetry = computed(() => overview.value.currentTelemetry || {})
 const selectedGreenhouse = computed(() => farmerGreenhouses.value.find(item => Number(item.id) === Number(greenhouseId.value)))
+const latestActiveAlerts = computed(() => sortByAlertTime(overview.value.activeAlerts).slice(0, 4))
 const userLabel = item => `${item.display_name || item.username}（${item.username}）`
 const deviceStatus = status => ({ RUNNING: '运行中', STOPPED: '已停止', MAINTENANCE: '维护中' }[status] || status)
 const alertLevel = level => ({ CRITICAL: '严重', WARNING: '警告', INFO: '提示' }[level] || level)
+const sortByAlertTime = alerts => [...(alerts || [])].sort((a, b) => new Date(b.occurredAt || b.createdAt || 0) - new Date(a.occurredAt || a.createdAt || 0))
 
 const currentQuery = extra => ({
   ...(farmerId.value ? { farmerId: farmerId.value } : {}),
@@ -181,6 +192,10 @@ const persistQuery = () => {
 }
 
 const go = (path, extra = {}) => router.push({ path, query: currentQuery(extra) })
+const goAlert = alert => go('/alerts', {
+  status: 'OPEN',
+  greenhouseId: alert.greenhouseId || greenhouseId.value
+})
 
 const playCamera = async () => {
   if (!cameraVideoRef.value || cameraPlaying.value) return
@@ -471,6 +486,19 @@ watch(() => route.query.greenhouseId, async value => {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.7);
+}
+
+.alert-list__item {
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.alert-list__item:hover,
+.alert-list__item:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(83, 184, 106, 0.4);
+  box-shadow: 0 14px 30px rgba(42, 91, 48, 0.12);
+  outline: none;
 }
 
 .alert-list p {

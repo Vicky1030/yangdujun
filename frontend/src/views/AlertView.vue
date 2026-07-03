@@ -31,7 +31,7 @@
       </div>
 
       <div class="alert-list">
-        <article v-for="alert in filteredAlerts" :key="alert.id" class="alert-card">
+        <article v-for="alert in pagedAlerts" :key="alert.id" class="alert-card">
           <div class="alert-card__main">
             <div>
               <div class="alert-title">
@@ -58,6 +58,16 @@
           </div>
         </article>
         <el-empty v-if="!filteredAlerts.length" description="当前没有符合条件的告警" />
+      </div>
+
+      <div v-if="filteredAlerts.length > pageSize" class="alert-pagination">
+        <el-pagination
+          v-model:current-page="currentPage"
+          background
+          layout="prev, pager, next, jumper, total"
+          :page-size="pageSize"
+          :total="filteredAlerts.length"
+        />
       </div>
     </section>
 
@@ -166,16 +176,22 @@ const alerts = ref([])
 const selectedAlert = ref(null)
 const handleDevices = ref([])
 const commandDevices = ref([])
+const currentPage = ref(1)
+const pageSize = 5
 const handleForm = reactive({ status: 'RESOLVED', handler: '', deviceId: null, command: 'START', note: '' })
 const commandForm = reactive({ deviceId: null, command: 'STOP', note: '', notifyFarmer: true })
 
 const farmers = computed(() => users.value.filter(item => item.role_code === 'FARMER'))
 const userLabel = item => `${item.display_name || item.username}（${item.username}）`
-const filteredAlerts = computed(() => alerts.value.filter(item => {
+const filteredAlerts = computed(() => sortByAlertTime(alerts.value).filter(item => {
   if (statusFilter.value && item.status !== statusFilter.value) return false
   if (isAdmin.value && farmerId.value && Number(item.farmerId) !== Number(farmerId.value)) return false
   return true
 }))
+const pagedAlerts = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return filteredAlerts.value.slice(start, start + pageSize)
+})
 const levelText = level => ({ CRITICAL: '严重', WARNING: '警告', INFO: '提示' }[level] || level || '-')
 const levelTag = level => level === 'CRITICAL' ? 'danger' : level === 'WARNING' ? 'warning' : 'info'
 const statusText = status => ({ OPEN: '待处理', ACKNOWLEDGED: '已下发建议', RESOLVED: '农户已解决' }[status] || status || '-')
@@ -186,6 +202,7 @@ const isResolved = alert => alert?.status === 'RESOLVED'
 const displayHandler = alert => isResolved(alert) ? cleanText(alert?.handledBy, '-') : '-'
 const displayHandledAt = alert => isResolved(alert) ? formatTime(alert?.handledAt || alert?.resolvedAt) : '-'
 const displayHandleNote = alert => isResolved(alert) ? cleanText(alert?.handleNote, '暂无处理意见') : '告警尚未由农户完成处理'
+const sortByAlertTime = items => [...(items || [])].sort((a, b) => new Date(b.occurredAt || b.createdAt || 0) - new Date(a.occurredAt || a.createdAt || 0))
 const cleanText = (value, fallback) => {
   if (value == null || String(value).trim() === '') return fallback
   const text = String(value)
@@ -194,6 +211,7 @@ const cleanText = (value, fallback) => {
 }
 
 const syncQuery = () => {
+  currentPage.value = 1
   router.replace({
     path: '/alerts',
     query: {
@@ -208,6 +226,7 @@ const loadAlerts = async () => {
   loading.value = true
   try {
     alerts.value = await fetchAlertDetails(greenhouseId.value)
+    currentPage.value = 1
   } finally {
     loading.value = false
   }
@@ -305,6 +324,7 @@ onMounted(async () => {
 .panel-head, .head-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .head-actions { flex-wrap: wrap; justify-content: flex-end; }
 .alert-list { display: grid; gap: 12px; margin-top: 18px; }
+.alert-pagination { display: flex; justify-content: flex-end; margin-top: 18px; }
 .alert-card { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,.82); box-shadow: 0 10px 26px rgba(39, 80, 47, .06); }
 .alert-card__main { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; }
 .alert-title { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
