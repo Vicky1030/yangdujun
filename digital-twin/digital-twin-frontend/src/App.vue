@@ -158,7 +158,7 @@ onBeforeUnmount(() => window.clearInterval(refreshTimer))
   <main v-if="!isLoggedIn" class="login-shell">
     <section class="login-copy">
       <p>智慧农业 · IoT · AI 调控</p>
-      <h1>菌境智联 · 羊肚菌智慧生态调控系统</h1>
+      <h1>温芯菌控 · 羊肚菌智慧生态调控系统</h1>
       <span>面向管理员和农户的大棚环境监测、设备管理、告警闭环与生产溯源平台。</span>
     </section>
 

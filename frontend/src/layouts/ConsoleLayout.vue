@@ -4,7 +4,7 @@
       <div class="brand">
         <div class="brand__mark">菌</div>
         <div>
-          <strong>菌境智联</strong>
+          <strong>温芯菌控</strong>
           <span>羊肚菌生态调控平台</span>
         </div>
       </div>
