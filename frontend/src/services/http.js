@@ -32,7 +32,7 @@ const unwrapResponse = (response) => {
 const handleError = (error) => {
   const timeout = error.code === 'ECONNABORTED' || String(error.message || '').includes('timeout')
   const message = timeout
-    ? 'AI 本地模型响应超时，请确认 Ollama 和 ai-service 已启动，或稍后重试'
+    ? 'AI 服务响应超时，请稍后重试或检查 AI 服务状态'
     : error.response?.data?.message || error.message || '网络异常，请稍后重试'
   ElMessage.error(message)
   if (error.response?.status === 401 || error.response?.data?.code === 401) {
