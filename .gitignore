@@ -11,6 +11,7 @@ runtime-logs/
 .DS_Store
 frontend/dist/
 frontend/node_modules/
+frontend/coverage/
 backend/target/
 backend-run*.log
 frontend-run*.log
