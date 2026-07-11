@@ -24,7 +24,7 @@ docs/          数据库与设计说明
 
 1. 安装 Java 17、Maven、Node.js 18+、Python 3.11+。
 2. 安装 KingbaseES V8，并创建数据库 `smart_greenhouse`。
-3. 将 KingbaseES JDBC 驱动放到 `backend/lib/kingbase8.jar`。
+3. 在线环境下，Maven 会通过 `kingbase-driver` Profile 自动解析 KingbaseES JDBC 驱动，无需手工复制 jar；仅离线构建时才需要按 `docs/KINGBASE_SETUP.md` 准备本地驱动。
 4. 如需 AI 功能，准备可访问的 Dify Chat 页面地址。
 
 ## 启动数据库与后端

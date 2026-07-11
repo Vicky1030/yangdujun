@@ -2,6 +2,7 @@ node_modules/
 target/
 dist/
 *.log
+runtime-logs/
 .env
 *.env
 .idea/

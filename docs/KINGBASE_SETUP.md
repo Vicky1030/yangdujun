@@ -26,15 +26,16 @@ $env:KINGBASE_USERNAME="system"
 $env:KINGBASE_PASSWORD="你的密码"
 ```
 
-## 2. 放置 JDBC 驱动
+## 2. JDBC 驱动说明
 
-从 KingbaseES 安装目录复制 `kingbase8.jar` 到：
+正常联网构建时，直接使用 `kingbase-driver` Profile 启动即可。Maven 会自动解析 KingbaseES JDBC 驱动，无需将 jar 放入项目目录：
 
-```text
-backend/lib/kingbase8.jar
+```powershell
+cd backend
+mvn -Pkingbase-driver spring-boot:run
 ```
 
-公开仓库不提交该 jar。
+仅在离线或受限网络环境下，才需要从 KingbaseES 安装目录取得 `kingbase8.jar` 并安装到本机 Maven 仓库，或按组织内部 Maven 仓库规范提供该依赖。公开仓库不提交 JDBC 驱动 jar。
 
 ## 3. 启动后端
 
