@@ -1,6 +1,6 @@
 # 智慧羊肚菌大棚管理系统
 
-这是一个面向羊肚菌大棚生产管理的 JavaWeb 实训项目。系统覆盖管理员端、农户端、AI 辅助诊断、华为云 IoTDA 硬件接入、数字孪生大屏、鸿蒙移动端和硬件端代码，适合用于展示完整的智慧农业业务闭环。
+这是一个面向羊肚菌大棚生产管理的实训项目。系统覆盖管理员端、农户端、AI 辅助诊断、华为云 IoTDA 硬件接入、数字孪生大屏、鸿蒙移动端和硬件端代码，适合用于展示完整的智慧农业业务闭环。
 
 ## 项目功能
 
@@ -381,34 +381,3 @@ docs/database/
 docs/database/README.md
 docs/database/smart_greenhouse_full_dump.sql
 ```
-
-## 课程提交建议
-
-如果只提交 Web 部分，至少应包含：
-
-```text
-backend/
-frontend/
-README.md
-.gitignore
-```
-
-其中测试相关内容必须保留：
-
-```text
-backend/src/test/java
-frontend/src/**/*.test.js
-backend/pom.xml
-frontend/package.json
-frontend/vite.config.js
-```
-
-覆盖率截图建议分别打开以下文件后截图：
-
-```text
-backend/target/site/jacoco/index.html
-frontend/coverage/index.html
-```
-
-如果重新克隆仓库，`target` 和 `coverage` 目录通常不会提交，需要先运行测试命令重新生成报告。
-
